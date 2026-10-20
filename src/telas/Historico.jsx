@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Send, Copy, Check, X, ClipboardList, ArrowRightLeft, Camera, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Send, Copy, Check, X, ClipboardList, ArrowRightLeft, Camera, CalendarDays, FileDown } from 'lucide-react'
 import { hojeISO, dataBR, diaMes } from '../lib/useLocal'
 import { lerFotosLocais, carimbarFoto } from '../lib/fotos'
 import { tituloBaixa, textoBaixa, textoTransferencias, abrirWhatsapp } from '../lib/textos'
 import { valoresDaLinha } from '../lib/imagemTabela'
+import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
+import { baixarArquivo } from '../lib/textos'
 
 // Histórico / relatório: tudo o que foi lançado NESTE aparelho num dia — as baixas (Ferti 1,
 // Ferti 2, Pulverização) e as transferências, com as fotos tiradas. Dá pra mandar o resumão
@@ -27,11 +29,13 @@ function VisorFoto({ src, onFechar }) {
 
 export default function Historico() {
   const [porDia] = useState(() => ler('baixa:porDia', {}))
-  const [transfs] = useState(() => ler('transf:lista', []))
+  // Transferência adicionada e deixada em branco (sem produto e sem nenhum campo) não entra.
+  const [transfs] = useState(() => ler('transf:lista', []).filter(t => ['produto', 'saldoAnt', 'qtdeTransf', 'estoque', 'destino', 'devolucao'].some(c => String(t[c] ?? '').trim())))
   const [fotos, setFotos] = useState({})
   const [foto, setFoto] = useState(null)
   const [copiado, setCopiado] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  const [gerandoPdf, setGerandoPdf] = useState(false)
   useEffect(() => { lerFotosLocais().then(setFotos).catch(() => {}) }, [])
 
   // Dias que têm alguma coisa (baixa com produto ou transferência), mais novo primeiro.
@@ -78,6 +82,23 @@ export default function Historico() {
       if (e?.name !== 'AbortError') abrirWhatsapp(textoCompleto)
     } finally { setEnviando(false) }
   }
+  async function gerarPdf() {
+    if (vazio || gerandoPdf) return
+    setGerandoPdf(true)
+    try {
+      const blob = await gerarPdfRelatorio({ dia, baixas, transferencias: transfDoDia, fotos })
+      const nome = `relatorio_${dia}.pdf`
+      const arq = new File([blob], nome, { type: 'application/pdf' })
+      // Celular: abre o menu de compartilhar/salvar; computador: baixa o arquivo.
+      if (navigator.canShare?.({ files: [arq] })) {
+        try { await navigator.share({ files: [arq] }); return } catch (e) { if (e?.name === 'AbortError') return }
+      }
+      baixarArquivo(blob, nome)
+    } catch (e) {
+      alert(`Não consegui gerar o PDF: ${e.message}`)
+    } finally { setGerandoPdf(false) }
+  }
+
   function copiar() {
     navigator.clipboard?.writeText(textoCompleto).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 1800) })
   }
@@ -172,9 +193,14 @@ export default function Historico() {
             <button onClick={enviar} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow">
               <Send size={20} /> {enviando ? 'Preparando…' : 'Enviar relatório no WhatsApp'}
             </button>
-            <button onClick={copiar} className="w-full flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700">
-              {copiado ? <><Check size={16} className="text-green-600" /> Copiado</> : <><Copy size={16} /> Copiar texto do relatório</>}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={gerarPdf} disabled={gerandoPdf} className="flex items-center justify-center gap-1.5 bg-white border-2 border-green-600 text-green-700 rounded-xl py-3 text-sm font-bold disabled:opacity-50">
+                <FileDown size={16} /> {gerandoPdf ? 'Gerando…' : 'Gerar PDF'}
+              </button>
+              <button onClick={copiar} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700">
+                {copiado ? <><Check size={16} className="text-green-600" /> Copiado</> : <><Copy size={16} /> Copiar texto</>}
+              </button>
+            </div>
             <p className="text-[11px] text-gray-400 text-center">Mostra o que foi lançado neste celular. As fotos vão junto quando o celular deixa compartilhar.</p>
           </div>
         </>
