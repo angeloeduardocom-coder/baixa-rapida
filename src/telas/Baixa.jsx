@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Plus, Trash2, Send, FileSpreadsheet, Copy, Check, Search, Eraser } from 'lucide-react'
+import { Plus, Trash2, Send, Copy, Check, Search, Eraser } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO } from '../lib/useLocal'
-import { gerarImagemBaixa } from '../lib/imagemTabela'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
@@ -45,29 +44,18 @@ export default function Baixa() {
   const titulo = tituloBaixa(ferti, data)
   const texto = textoBaixa(ferti, data, linhas)
 
-  async function imagem() { return gerarImagemBaixa(titulo, linhas) }
   async function enviar() {
     if (!linhas.length || enviando) return
     setEnviando(true)
     try {
-      const blob = await imagem()
-      const arq = new File([blob], `baixa_ferti${ferti}_${data}.png`, { type: 'image/png' })
+      const blob = await gerarExcelBaixa(titulo, linhas)
+      const arq = new File([blob], `baixa_ferti${ferti}_${data}.xlsx`, { type: blob.type })
       if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq] }); return }
-      baixarArquivo(blob, arq.name) // PC: baixa a imagem e abre o WhatsApp pra anexar
+      baixarArquivo(blob, arq.name) // PC: baixa o Excel e abre o WhatsApp pra anexar
       abrirWhatsapp(texto)
     } catch (e) {
       if (e?.name !== 'AbortError') abrirWhatsapp(texto)
     } finally { setEnviando(false) }
-  }
-  async function salvarExcel() {
-    if (!linhas.length) return
-    const blob = await gerarExcelBaixa(titulo, linhas)
-    const nome = `baixa_ferti${ferti}_${data}.xlsx`
-    const arq = new File([blob], nome, { type: blob.type })
-    try {
-      if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq] }); return }
-    } catch (e) { if (e?.name === 'AbortError') return }
-    baixarArquivo(blob, nome)
   }
   function copiar() {
     navigator.clipboard?.writeText(texto).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 1800) })
@@ -143,12 +131,11 @@ export default function Baixa() {
           <button onClick={enviar} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow">
             <Send size={20} /> {enviando ? 'Preparando…' : 'Enviar no WhatsApp'}
           </button>
-          <div className="grid grid-cols-3 gap-2">
-            <button onClick={salvarExcel} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700"><FileSpreadsheet size={16} /> Excel</button>
+          <div className="grid grid-cols-2 gap-2">
             <button onClick={copiar} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700">{copiado ? <Check size={16} className="text-green-600" /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Texto'}</button>
             <button onClick={() => { if (confirm('Limpar a baixa deste dia?')) setLinhas(() => []) }} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-red-600"><Eraser size={16} /> Limpar</button>
           </div>
-          <p className="text-[11px] text-gray-400 text-center">No celular abre o WhatsApp com a imagem da tabela. No computador baixa a imagem e abre o WhatsApp.</p>
+          <p className="text-[11px] text-gray-400 text-center">No celular abre o WhatsApp com a planilha em Excel. No computador baixa o Excel e abre o WhatsApp.</p>
         </div>
       )}
     </div>
