@@ -1,7 +1,9 @@
 import { dataBR, diaMes } from './useLocal'
 import { valoresDaLinha } from './imagemTabela'
 
+// `ferti` = 1 | 2 (Fertirrigação) ou 'pulv' (Pulverização).
 export function tituloBaixa(ferti, data) {
+  if (ferti === 'pulv') return `PRODUTOS PULVERIZAÇÃO - DATA: ${dataBR(data)}`
   return `PRODUTOS FERTIRRIGAÇÃO ${ferti} - DATA: ${dataBR(data)}`
 }
 

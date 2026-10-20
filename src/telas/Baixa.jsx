@@ -72,7 +72,7 @@ export default function Baixa() {
     setEnviando(true)
     try {
       const blob = await gerarExcelBaixa(titulo, linhas)
-      const arq = new File([blob], `baixa_ferti${ferti}_${data}.xlsx`, { type: blob.type })
+      const arq = new File([blob], `baixa_${ferti === 'pulv' ? 'pulverizacao' : `ferti${ferti}`}_${data}.xlsx`, { type: blob.type })
       if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq] }); return }
       baixarArquivo(blob, arq.name) // PC: baixa o Excel e abre o WhatsApp pra anexar
       abrirWhatsapp(texto)
@@ -88,9 +88,9 @@ export default function Baixa() {
     <div className="space-y-4">
       <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-3">
         <div className="flex gap-2">
-          {[1, 2].map(n => (
-            <button key={n} onClick={() => setFerti(n)} className={`flex-1 py-3 rounded-xl font-bold text-base border-2 transition-colors ${ferti === n ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-200 text-gray-600'}`}>
-              Ferti {n}
+          {[[1, 'Ferti 1'], [2, 'Ferti 2'], ['pulv', 'Pulverização']].map(([n, rotulo]) => (
+            <button key={n} onClick={() => setFerti(n)} className={`flex-1 py-3 px-1 rounded-xl font-bold text-[15px] border-2 transition-colors ${ferti === n ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-200 text-gray-600'}`}>
+              {rotulo}
             </button>
           ))}
         </div>
