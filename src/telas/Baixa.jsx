@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import { Plus, Trash2, Send, Image as ImagemIcon, Copy, Check, Search, Eraser } from 'lucide-react'
+import { Plus, Trash2, Send, FileSpreadsheet, Copy, Check, Search, Eraser } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO } from '../lib/useLocal'
 import { gerarImagemBaixa } from '../lib/imagemTabela'
+import { gerarExcelBaixa } from '../lib/excelBaixa'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
 const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-2.5 text-base bg-white outline-none'
@@ -58,7 +59,16 @@ export default function Baixa() {
       if (e?.name !== 'AbortError') abrirWhatsapp(texto)
     } finally { setEnviando(false) }
   }
-  async function salvarImagem() { if (linhas.length) baixarArquivo(await imagem(), `baixa_ferti${ferti}_${data}.png`) }
+  async function salvarExcel() {
+    if (!linhas.length) return
+    const blob = await gerarExcelBaixa(titulo, linhas)
+    const nome = `baixa_ferti${ferti}_${data}.xlsx`
+    const arq = new File([blob], nome, { type: blob.type })
+    try {
+      if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq] }); return }
+    } catch (e) { if (e?.name === 'AbortError') return }
+    baixarArquivo(blob, nome)
+  }
   function copiar() {
     navigator.clipboard?.writeText(texto).then(() => { setCopiado(true); setTimeout(() => setCopiado(false), 1800) })
   }
@@ -134,7 +144,7 @@ export default function Baixa() {
             <Send size={20} /> {enviando ? 'Preparando…' : 'Enviar no WhatsApp'}
           </button>
           <div className="grid grid-cols-3 gap-2">
-            <button onClick={salvarImagem} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700"><ImagemIcon size={16} /> Imagem</button>
+            <button onClick={salvarExcel} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700"><FileSpreadsheet size={16} /> Excel</button>
             <button onClick={copiar} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700">{copiado ? <Check size={16} className="text-green-600" /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Texto'}</button>
             <button onClick={() => { if (confirm('Limpar a baixa deste dia?')) setLinhas(() => []) }} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-red-600"><Eraser size={16} /> Limpar</button>
           </div>
