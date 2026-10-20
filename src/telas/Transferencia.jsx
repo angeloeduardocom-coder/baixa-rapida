@@ -62,7 +62,7 @@ export default function Transferencia() {
   useEffect(() => { lerFotosLocais().then(setFotos).catch(() => {}) }, [])
 
   const doDia = lista.filter(t => t.data === data)
-  const comFotos = doDia.map(t => ({ ...t, temFotoTransf: !!fotos[`${t.id}:fotoTransf`], temFotoDevolucao: !!fotos[`${t.id}:fotoDevolucao`] }))
+  const comFotos = doDia.map(t => ({ ...t, temFotoTransf: !!fotos[`${t.id}:fotoTransf`], temFotoDevolucao: false }))
   const nomes = useMemo(() => PRODUTOS.map(p => p.nome), [])
 
   const adicionar = () => setLista(l => [...l, { id: uid(), data, produto: '', saldoAnt: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '' }])
@@ -84,7 +84,8 @@ export default function Transferencia() {
       const t = itens[i]
       const nome = (t.produto || `PRODUTO ${i + 1}`).toUpperCase()
       const base = nome.replace(/[^\w-]+/g, '_')
-      for (const [campo_, rot] of [['fotoTransf', 'TRANSFERÊNCIA'], ['fotoDevolucao', 'DEVOLUÇÃO']]) {
+      // Uma foto só por produto (a do produto transferido) — a da devolução saiu, era a mesma.
+      for (const [campo_, rot] of [['fotoTransf', 'TRANSFERÊNCIA']]) {
         const src = fotos[`${t.id}:${campo_}`]
         if (src) arqs.push(new File([await carimbarFoto(src, `${nome} — ${rot} · ${diaMes(data)}`)], `${i + 1}_${base}_${rot.toLowerCase()}.jpg`, { type: 'image/jpeg' }))
       }
@@ -136,7 +137,6 @@ export default function Transferencia() {
             <span className="text-xs font-semibold text-gray-500">Devolução (opcional)</span>
             <input value={t.devolucao} onChange={e => atualizar(t.id, 'devolucao', e.target.value)} placeholder="ex.: 2,9 kg C. Calda 02" className={campo} />
           </label>
-          <CampoFoto rotulo="📷 Foto da devolução" valor={fotos[`${t.id}:fotoDevolucao`]} onChange={v => setFoto(t.id, 'fotoDevolucao', v)} />
           {doDia.length > 1 && (
             <button onClick={() => enviar([comFotos.find(x => x.id === t.id)])} disabled={enviando} className="w-full flex items-center justify-center gap-1.5 border-2 border-green-600 text-green-700 rounded-xl py-2.5 text-sm font-bold"><Send size={15} /> Enviar só este produto</button>
           )}
