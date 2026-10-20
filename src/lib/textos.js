@@ -9,13 +9,8 @@ export function tituloBaixa(ferti, data) {
 export function textoBaixa(ferti, data, linhas) {
   const out = [`*${tituloBaixa(ferti, data)}*`, '']
   linhas.forEach(l => {
-    const [produto, consumo, transf, quant, devol] = valoresDaLinha(l)
-    out.push(`*${produto || '—'}*`)
-    out.push(`CONSUMO: ${consumo}`)
-    out.push(`TRANSFERÊNCIA: ${transf}`)
-    out.push(`QUANT.: ${quant}`)
-    out.push(`DEVOLUÇÃO: ${devol}`)
-    out.push('')
+    const [produto, quant, unidade] = valoresDaLinha(l)
+    out.push(`*${produto || '—'}:* ${quant || '—'} ${unidade}`.trim())
   })
   return out.join('\n').trim()
 }

@@ -28,7 +28,8 @@ export default function Baixa() {
   const [enviando, setEnviando] = useState(false)
 
   const chave = `${data}|${ferti}`
-  const linhas = porDia[chave] || []
+  // Baixa antiga tinha Consumo e Quant. separados — agora é um campo só (Quantidade).
+  const linhas = (porDia[chave] || []).map(l => (l.quant || !l.consumo ? l : { ...l, quant: l.consumo }))
   const setLinhas = fn => setPorDia(p => ({ ...p, [chave]: fn(p[chave] || []) }))
 
   const catalogo = useMemo(() => [...PRODUTOS, ...extras.map(n => ({ nome: n, unidade: 'L' }))], [extras])
@@ -51,7 +52,7 @@ export default function Baixa() {
   const podeCriar = nomeNovo && !catalogo.some(p => p.nome.toUpperCase() === nomeNovo) && !jaTem.has(nomeNovo)
 
   function adicionar(nome, unidade = 'L') {
-    setLinhas(ls => [...ls, { id: uid(), produto: nome, consumo: '', unidade, transf: '', quant: '', devolucao: '' }])
+    setLinhas(ls => [...ls, { id: uid(), produto: nome, unidade, quant: '' }])
     setBusca('')
     setListaAberta(false)
     setMarcado(0)
@@ -163,27 +164,14 @@ export default function Baixa() {
             <p className="flex-1 font-bold text-gray-800 text-base">{l.produto}</p>
             <button onClick={() => remover(l.id)} aria-label="Remover" className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="text-xs font-semibold text-gray-500">Consumo</span>
-              <div className="flex gap-1.5">
-                <input inputMode="decimal" value={l.consumo} onChange={e => atualizar(l.id, 'consumo', e.target.value)} placeholder="0,0" className={campo} />
-                <button onClick={() => atualizar(l.id, 'unidade', l.unidade === 'KG' ? 'L' : 'KG')} className="px-3 rounded-xl border border-gray-300 font-bold text-green-700 bg-green-50 shrink-0">{l.unidade}</button>
-              </div>
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-gray-500">Quant.</span>
-              <input inputMode="decimal" value={l.quant} onChange={e => atualizar(l.id, 'quant', e.target.value)} className={campo} />
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-gray-500">Transferência</span>
-              <input value={l.transf} onChange={e => atualizar(l.id, 'transf', e.target.value)} placeholder="destino" className={campo} />
-            </label>
-            <label className="block">
-              <span className="text-xs font-semibold text-gray-500">Devolução</span>
-              <input value={l.devolucao} onChange={e => atualizar(l.id, 'devolucao', e.target.value)} className={campo} />
-            </label>
-          </div>
+          <label className="block">
+            <span className="text-xs font-semibold text-gray-500">Quantidade</span>
+            <div className="flex gap-1.5">
+              <input inputMode="decimal" value={l.quant ?? ''} onChange={e => atualizar(l.id, 'quant', e.target.value)} placeholder="0,0" className={campo} />
+              {/* Unidade fixa, a que veio do cadastro do produto (não troca aqui). */}
+              <span className="px-4 flex items-center rounded-xl border border-gray-200 font-bold text-green-700 bg-green-50 shrink-0">{l.unidade}</span>
+            </div>
+          </label>
         </div>
       ))}
 

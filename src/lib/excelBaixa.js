@@ -2,8 +2,8 @@
 // cabeçalho e linhas com borda. O exceljs é pesado, então só carrega quando o botão é usado.
 import { valoresDaLinha } from './imagemTabela'
 
-const TITULOS = ['PRODUTO', 'CONSUMO', 'TRANSFERÊNCIA', 'QUANT.', 'DEVOLUÇÃO']
-const LARGURAS = [38, 16, 24, 12, 18]
+const TITULOS = ['PRODUTO', 'QUANTIDADE', 'UNIDADE']
+const LARGURAS = [42, 16, 12]
 
 export async function gerarExcelBaixa(titulo, linhas) {
   const { default: ExcelJS } = await import('exceljs')
@@ -14,13 +14,13 @@ export async function gerarExcelBaixa(titulo, linhas) {
   const bordas = { top: borda, left: borda, bottom: borda, right: borda }
   const fundo = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } }
 
-  ws.mergeCells(1, 1, 1, 5)
+  ws.mergeCells(1, 1, 1, TITULOS.length)
   const t = ws.getCell(1, 1)
   t.value = titulo
   t.font = { bold: true, size: 13 }
   t.alignment = { horizontal: 'center', vertical: 'middle' }
   t.fill = fundo
-  for (let c = 1; c <= 5; c++) ws.getCell(1, c).border = bordas
+  for (let c = 1; c <= TITULOS.length; c++) ws.getCell(1, c).border = bordas
 
   const cab = ws.getRow(2)
   TITULOS.forEach((tt, i) => {

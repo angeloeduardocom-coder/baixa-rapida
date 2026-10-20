@@ -1,16 +1,15 @@
 // Desenha a tabela da baixa igual à planilha do Excel (título, cabeçalho e linhas com borda) numa
 // imagem PNG — é ela que vai pro WhatsApp no lugar do print da planilha.
 const COLUNAS = [
-  { titulo: 'PRODUTO', largura: 350, alinha: 'left' },
-  { titulo: 'CONSUMO', largura: 170, alinha: 'center' },
-  { titulo: 'TRANSFERÊNCIA', largura: 220, alinha: 'center' },
-  { titulo: 'QUANT.', largura: 120, alinha: 'center' },
-  { titulo: 'DEVOLUÇÃO', largura: 180, alinha: 'center' },
+  { titulo: 'PRODUTO', largura: 420, alinha: 'left' },
+  { titulo: 'QUANTIDADE', largura: 200, alinha: 'center' },
+  { titulo: 'UNIDADE', largura: 160, alinha: 'center' },
 ]
 
+// Baixa: produto, quantidade e unidade (Consumo/Transferência/Devolução ficaram na aba Transferência).
 export function valoresDaLinha(l) {
-  const consumo = String(l.consumo ?? '').trim()
-  return [String(l.produto || '').toUpperCase(), consumo ? `${consumo} ${l.unidade || ''}`.trim() : '', l.transf || '', l.quant || '', l.devolucao || '']
+  const qtd = String(l.quant ?? '').trim() || String(l.consumo ?? '').trim()
+  return [String(l.produto || '').toUpperCase(), qtd, l.unidade || '']
 }
 
 export function gerarImagemBaixa(titulo, linhas) {
