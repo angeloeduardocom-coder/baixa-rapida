@@ -1,9 +1,20 @@
-import { useMemo, useState } from 'react'
-import { Plus, Trash2, Send, Copy, Check, Search, Eraser } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
+
+// Busca sem acento e sem diferença de maiúscula (ex: "magnesio" acha "SULFATO DE MAGNÉSIO").
+const semAcento = t => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toUpperCase()
+
+// Pinta de amarelo o pedaço do nome que bate com o que foi digitado.
+function Destaque({ texto, termo }) {
+  const t = semAcento(termo).trim()
+  const i = t ? semAcento(texto).indexOf(t) : -1
+  if (i < 0) return texto
+  return <>{texto.slice(0, i)}<mark className="bg-yellow-200 rounded px-0.5">{texto.slice(i, i + t.length)}</mark>{texto.slice(i + t.length)}</>
+}
 
 const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-2.5 text-base bg-white outline-none'
 
@@ -22,17 +33,28 @@ export default function Baixa() {
 
   const catalogo = useMemo(() => [...PRODUTOS, ...extras.map(n => ({ nome: n, unidade: 'L' }))], [extras])
   const jaTem = new Set(linhas.map(l => l.produto.toUpperCase()))
+  // Lista da barra de produtos: em ordem alfabética; digitando, primeiro os que COMEÇAM com o
+  // texto, depois os que só contêm. Os que já estão na baixa não aparecem.
   const sugestoes = useMemo(() => {
-    const t = busca.trim().toUpperCase()
-    return catalogo.filter(p => !jaTem.has(p.nome.toUpperCase()) && (!t || p.nome.toUpperCase().includes(t))).slice(0, t ? 8 : 12)
+    const t = semAcento(busca).trim()
+    const lista = catalogo
+      .filter(p => !jaTem.has(p.nome.toUpperCase()) && (!t || semAcento(p.nome).includes(t)))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+    if (!t) return lista
+    return [...lista.filter(p => semAcento(p.nome).startsWith(t)), ...lista.filter(p => !semAcento(p.nome).startsWith(t))]
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, catalogo, linhas])
+  const [listaAberta, setListaAberta] = useState(false)
+  const [marcado, setMarcado] = useState(0)
+  const buscaRef = useRef(null)
   const nomeNovo = busca.trim().toUpperCase()
   const podeCriar = nomeNovo && !catalogo.some(p => p.nome.toUpperCase() === nomeNovo) && !jaTem.has(nomeNovo)
 
   function adicionar(nome, unidade = 'L') {
     setLinhas(ls => [...ls, { id: uid(), produto: nome, consumo: '', unidade, transf: '', quant: '', devolucao: '' }])
     setBusca('')
+    setListaAberta(false)
+    setMarcado(0)
   }
   function criarProduto() {
     setExtras(e => [...e, nomeNovo])
@@ -76,25 +98,64 @@ export default function Baixa() {
 
       <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-2">
         <p className="text-sm font-bold text-gray-700">Adicionar produto</p>
+        {/* Barra de produtos: toca/digita e a lista vai aparecendo e filtrando (setas + Enter também). */}
         <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Digite para buscar…" className={`${campo} pl-10`} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {sugestoes.map(p => (
-            <button key={p.nome} onClick={() => adicionar(p.nome, p.unidade)} className="px-3 py-2 rounded-full bg-green-50 border border-green-200 text-green-800 text-sm font-semibold active:bg-green-100">
-              + {p.nome}
-            </button>
-          ))}
-          {podeCriar && (
-            <button onClick={criarProduto} className="px-3 py-2 rounded-full bg-amber-50 border border-amber-300 text-amber-800 text-sm font-semibold">
-              + Criar “{nomeNovo}”
-            </button>
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            ref={buscaRef}
+            value={busca}
+            onChange={e => { setBusca(e.target.value); setListaAberta(true); setMarcado(0) }}
+            onFocus={() => setListaAberta(true)}
+            onBlur={() => setTimeout(() => setListaAberta(false), 150)}
+            onKeyDown={e => {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setListaAberta(true); setMarcado(m => Math.min(m + 1, sugestoes.length - 1)) }
+              else if (e.key === 'ArrowUp') { e.preventDefault(); setMarcado(m => Math.max(m - 1, 0)) }
+              else if (e.key === 'Enter') {
+                e.preventDefault()
+                const p = sugestoes[marcado]
+                if (p) adicionar(p.nome, p.unidade)
+                else if (podeCriar) criarProduto()
+              } else if (e.key === 'Escape') setListaAberta(false)
+            }}
+            placeholder="Toque e escolha, ou digite o nome…"
+            className={`${campo} pl-10 pr-10`}
+            role="combobox"
+            aria-expanded={listaAberta}
+          />
+          {busca ? (
+            <button onMouseDown={e => e.preventDefault()} onClick={() => { setBusca(''); buscaRef.current?.focus() }} aria-label="Limpar" className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400"><X size={18} /></button>
+          ) : (
+            <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          )}
+          {listaAberta && (sugestoes.length > 0 || podeCriar) && (
+            <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-72 overflow-y-auto">
+              <p className="sticky top-0 bg-gray-50 border-b border-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
+                {busca.trim() ? `${sugestoes.length} produto(s) encontrado(s)` : `${sugestoes.length} produtos · A–Z`}
+              </p>
+              {sugestoes.map((p, i) => (
+                <button
+                  key={p.nome}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => adicionar(p.nome, p.unidade)}
+                  onMouseEnter={() => setMarcado(i)}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left text-[15px] border-b border-gray-50 ${i === marcado ? 'bg-green-50' : 'bg-white'}`}
+                >
+                  <Plus size={16} className="text-green-600 shrink-0" />
+                  <span className="flex-1 font-semibold text-gray-800"><Destaque texto={p.nome} termo={busca} /></span>
+                  <span className="text-xs font-bold text-gray-400">{p.unidade}</span>
+                </button>
+              ))}
+              {podeCriar && (
+                <button onMouseDown={e => e.preventDefault()} onClick={criarProduto} className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-[15px] bg-amber-50 text-amber-800 font-semibold">
+                  <Plus size={16} className="shrink-0" /> Criar produto “{nomeNovo}”
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>
 
-      {linhas.length === 0 && <p className="text-center text-gray-400 py-8">Toque nos produtos acima para montar a baixa do dia.</p>}
+      {linhas.length === 0 && <p className="text-center text-gray-400 py-8">Toque na barra acima e escolha os produtos para montar a baixa do dia.</p>}
 
       {linhas.map(l => (
         <div key={l.id} className="bg-white rounded-2xl border border-gray-200 p-3 space-y-2.5">
