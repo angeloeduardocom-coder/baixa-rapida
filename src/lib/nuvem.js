@@ -9,9 +9,24 @@
 // - Fotos → Storage, bucket público `fotos-insumos`; o endereço vai no item (fotoTransfUrl).
 import { createClient } from '@supabase/supabase-js'
 
-const URL_NUVEM = import.meta.env.VITE_SUPABASE_URL
-const CHAVE_NUVEM = import.meta.env.VITE_SUPABASE_ANON_KEY
-export const supabase = URL_NUVEM && CHAVE_NUVEM ? createClient(URL_NUVEM, CHAVE_NUVEM) : null
+// Valores do Vercel limpos (espaço, quebra de linha, aspas) e, se a URL vier sem "https://",
+// completa. Se mesmo assim estiver errado, o app NÃO trava: segue só no aparelho e avisa.
+const limpar = v => String(v || '').trim().replace(/^["']|["']$/g, '').trim()
+let URL_NUVEM = limpar(import.meta.env.VITE_SUPABASE_URL).replace(/\/+$/, '')
+if (URL_NUVEM && !/^https?:\/\//i.test(URL_NUVEM)) URL_NUVEM = `https://${URL_NUVEM}`
+const CHAVE_NUVEM = limpar(import.meta.env.VITE_SUPABASE_ANON_KEY).replace(/\s+/g, '')
+export let erroNuvem = ''
+function criarCliente() {
+  if (!URL_NUVEM || !CHAVE_NUVEM) return null
+  try {
+    return createClient(URL_NUVEM, CHAVE_NUVEM)
+  } catch (e) {
+    erroNuvem = `Configuração da nuvem inválida (${e?.message || e}). O app segue salvando só no aparelho.`
+    console.error(erroNuvem)
+    return null
+  }
+}
+export const supabase = criarCliente()
 export const nuvemLigada = !!supabase
 const BUCKET = 'fotos-insumos'
 

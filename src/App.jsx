@@ -3,6 +3,7 @@ import { ClipboardList, ArrowRightLeft, History } from 'lucide-react'
 import Baixa from './telas/Baixa'
 import Transferencia from './telas/Transferencia'
 import Historico from './telas/Historico'
+import { erroNuvem } from './lib/nuvem'
 
 const ABAS = [
   { id: 'baixa', rotulo: 'Baixa', Icone: ClipboardList },
@@ -20,6 +21,7 @@ export default function App() {
         <p className="text-xs text-green-100">Preencha e envie para o WhatsApp</p>
       </header>
       <main className="p-3 pb-[calc(6rem+env(safe-area-inset-bottom))]">
+        {erroNuvem && <p className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{erroNuvem}</p>}
         {aba === 'baixa' ? <Baixa /> : aba === 'historico' ? <Historico /> : <Transferencia />}
       </main>
       <nav className="fixed bottom-0 inset-x-0 z-20 bg-white border-t border-gray-200 shadow-2xl pb-[env(safe-area-inset-bottom)]">
