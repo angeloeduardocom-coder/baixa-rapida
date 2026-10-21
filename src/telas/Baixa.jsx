@@ -3,7 +3,7 @@ import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, 
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
-import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp } from '../lib/nuvem'
+import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp, meuAparelho } from '../lib/nuvem'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
 // Busca sem acento e sem diferença de maiúscula (ex: "magnesio" acha "SULFATO DE MAGNÉSIO").
@@ -36,13 +36,16 @@ export default function Baixa() {
   // do dia for limpa ou a data mudar, dá pra abrir/recuperar daqui. Chave = "data|tipo".
   const [salvos, setSalvos] = useLocal('baixa:salvos', {})
   const [aviso, setAviso] = useState('')
-  // Nuvem: ids que este aparelho já viu em cada "data|tipo" (pra saber o que foi apagado aqui)
-  // e a fila do que ficou sem subir por falta de internet.
-  const [conhecidos, setConhecidos] = useLocal('baixa:conhecidos', {})
+  // Nuvem: ids que este aparelho já enviou em cada "data|tipo" (o que saiu da lista aqui some da
+  // nuvem também) e a fila do que ficou sem subir por falta de internet.
+  const [conhecidos, setConhecidos] = useLocal('baixa:enviados', {})
+  // O que OUTRAS pessoas lançaram no mesmo dia (outros celulares / tela do sistema) — só leitura.
+  const [outros, setOutros] = useState([])
   const [fila, setFila] = useLocal('baixa:filaNuvem', [])
   const [erroEnvio, setErroEnvio] = useState('')
   const porDiaRef = useRef(porDia); porDiaRef.current = porDia
   const conhecidosRef = useRef(conhecidos); conhecidosRef.current = conhecidos
+  const chaveRef = useRef('')
 
   const chave = `${data}|${ferti}`
   // Baixa antiga tinha Consumo e Quant. separados — agora é um campo só (Quantidade).
@@ -89,9 +92,9 @@ export default function Baixa() {
     if (!nuvemLigada) return false
     const [d, t] = k.split('|')
     try {
-      const deFora = await enviarBaixaNuvem(d, tipoDaChave(t), ls, conhecidosRef.current[k] || [])
-      if (deFora.length) setPorDia(p => ({ ...p, [k]: [...(p[k] || []), ...deFora.map(i => paraApp(i, PRODUTOS))] }))
-      setConhecidos(c => ({ ...c, [k]: [...new Set([...(c[k] || []), ...ls.map(l => l.id), ...deFora.map(l => l.id)])] }))
+      const deOutros = await enviarBaixaNuvem(d, tipoDaChave(t), ls, conhecidosRef.current[k] || [])
+      if (k === chaveRef.current) setOutros(deOutros.map(i => paraApp(i, PRODUTOS)))
+      setConhecidos(c => ({ ...c, [k]: ls.map(l => l.id) }))
       setSalvos(s => (s[k] ? { ...s, [k]: { ...s[k], nuvemEm: new Date().toISOString() } } : s))
       setFila(f => f.filter(x => x !== k))
       setErroEnvio('')
@@ -114,16 +117,16 @@ export default function Baixa() {
     }
   }
 
-  // Ao abrir um dia vazio neste aparelho, traz o que já está na nuvem (feito em outro celular
-  // ou no sistema).
+  // Ao abrir um dia, mostra (só pra consulta) o que outras pessoas já lançaram nele.
+  chaveRef.current = chave
   useEffect(() => {
-    if (!nuvemLigada || (porDiaRef.current[chave] || []).length) return
+    setOutros([])
+    if (!nuvemLigada) return
     let ativo = true
     lerBaixasNuvem(ferti).then(itens => {
-      const doDia = itens.filter(i => i.data === data)
-      if (!ativo || !doDia.length || (porDiaRef.current[chave] || []).length) return
-      setPorDia(p => ({ ...p, [chave]: doDia.map(i => paraApp(i, PRODUTOS)) }))
-      setConhecidos(c => ({ ...c, [chave]: doDia.map(i => i.id) }))
+      if (!ativo) return
+      const meus = new Set([...(porDiaRef.current[chave] || []).map(l => l.id), ...(conhecidosRef.current[chave] || [])])
+      setOutros(itens.filter(i => i.data === data && i.aparelho !== meuAparelho && !meus.has(i.id)).map(i => paraApp(i, PRODUTOS)))
     }).catch(() => {})
     return () => { ativo = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -265,6 +268,20 @@ export default function Baixa() {
           )}
         </div>
       </div>
+
+      {outros.length > 0 && (
+        <div className="bg-sky-50 border border-sky-200 rounded-2xl p-3 space-y-1">
+          <p className="text-sm font-bold text-sky-800">Já lançado por outras pessoas nesta data ({outros.length})</p>
+          {outros.map(o => (
+            <div key={o.id} className="flex items-center gap-2 text-sm text-sky-900">
+              <span className="flex-1 font-semibold">{o.produto}</span>
+              <span>{o.quant || '—'} {o.unidade}</span>
+              <span className="text-[10px] font-bold uppercase text-sky-600">{o.origem === 'app' ? 'outro celular' : 'sistema'}</span>
+            </div>
+          ))}
+          <p className="text-[11px] text-sky-700">Isso não muda. Lance abaixo só o que <b>você</b> retirou: tudo soma no sistema.</p>
+        </div>
+      )}
 
       {linhas.length === 0 && salvo?.linhas?.length > 0 && (
         <button onClick={recuperar} className="w-full flex items-center justify-center gap-2 bg-amber-50 border-2 border-amber-300 text-amber-800 font-bold rounded-2xl py-3.5">

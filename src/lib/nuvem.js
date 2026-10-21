@@ -35,6 +35,17 @@ export const supabase = criarCliente()
 export const nuvemLigada = !!supabase
 const BUCKET = 'fotos-insumos'
 
+// Identidade deste celular: cada aparelho cuida SÓ dos itens que ele mesmo lançou. Assim duas
+// pessoas lançando a baixa do mesmo dia somam, em vez de uma apagar a da outra.
+function lerAparelho() {
+  try {
+    let id = localStorage.getItem('baixa:aparelho')
+    if (!id) { id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2); localStorage.setItem('baixa:aparelho', id) }
+    return id
+  } catch { return 'sem-id' }
+}
+export const meuAparelho = lerAparelho()
+
 function tabela(tipo) {
   return tipo === 'pulv'
     ? { nome: 'pulverizacao_baixa_diaria', coluna: 'id', valor: 1 }
@@ -51,7 +62,7 @@ const numero = v => {
 export const quantTexto = q => (q === null || q === undefined ? '' : String(q).replace('.', ','))
 
 // Linha do app ⇄ item do sistema.
-export const paraServidor = (l, data) => ({ id: l.id, data, produto: l.produto, quantidade: numero(l.quant), unidade: l.unidade || null, transferencia: l.transferencia ?? null, local: l.local ?? null, origem: l.origem || 'app' })
+export const paraServidor = (l, data) => ({ id: l.id, data, produto: l.produto, quantidade: numero(l.quant), unidade: l.unidade || null, transferencia: l.transferencia ?? null, local: l.local ?? null, origem: 'app', aparelho: meuAparelho })
 // Sem unidade (lançado na tela do sistema): pega a do cadastro de produtos do app.
 export const paraApp = (i, catalogo = []) => ({ id: i.id, produto: i.produto || '', unidade: i.unidade || catalogo.find(p => p.nome.toUpperCase() === String(i.produto || '').toUpperCase())?.unidade || 'L', quant: quantTexto(i.quantidade), origem: i.origem || 'sistema', transferencia: i.transferencia ?? null, local: i.local ?? null })
 
@@ -68,21 +79,19 @@ export async function lerBaixasNuvem(tipo) {
   return lerLista(tipo)
 }
 
-// Grava a baixa de um dia: troca os itens daquele dia pelos do app. Itens que outra pessoa
-// lançou no mesmo dia (no sistema ou em outro celular) e que este aparelho ainda não conhecia
-// são mantidos e devolvidos, pra entrarem na tela. `conhecidos` = ids que este aparelho já viu
-// naquele dia (o que saiu da lista aqui foi apagado de propósito).
-export async function enviarBaixaNuvem(data, tipo, linhas, conhecidos = []) {
+// Grava a baixa de um dia DESTE celular: troca só os itens daquele dia que são deste aparelho
+// (ou que este aparelho já enviou antes — `enviados`), e mantém tudo o que outras pessoas
+// lançaram (outros celulares e a tela do sistema).
+export async function enviarBaixaNuvem(data, tipo, linhas, enviados = []) {
   if (!supabase) throw new Error('sem nuvem')
   const t = tabela(tipo)
   const atual = await lerLista(tipo)
-  const meus = new Set(linhas.map(l => l.id))
-  const vistos = new Set(conhecidos)
-  const novosDeFora = atual.filter(i => i.data === data && !meus.has(i.id) && !vistos.has(i.id))
-  const lista = [...atual.filter(i => i.data !== data), ...novosDeFora, ...linhas.map(l => paraServidor(l, data))]
+  const meus = new Set([...linhas.map(l => l.id), ...enviados])
+  const eMeu = i => i.data === data && (i.aparelho === meuAparelho || meus.has(i.id))
+  const lista = [...atual.filter(i => !eMeu(i)), ...linhas.map(l => paraServidor(l, data))]
   const { error } = await supabase.from(t.nome).update({ baixa: lista, atualizado_em: new Date().toISOString() }).eq(t.coluna, t.valor)
   if (error) throw error
-  return novosDeFora
+  return atual.filter(i => i.data === data && !eMeu(i))
 }
 
 // ---------- Transferências ----------

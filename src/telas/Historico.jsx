@@ -47,7 +47,11 @@ export default function Historico() {
         for (const [t, itens] of res) {
           const grupos = {}
           for (const i of itens) if (i.data) (grupos[`${i.data}|${t}`] ||= []).push(paraApp(i, PRODUTOS))
-          for (const [k, ls] of Object.entries(grupos)) if (!(novo[k] || []).length) novo[k] = ls
+          // Junta: o que está neste aparelho + o que outras pessoas lançaram no mesmo dia.
+          for (const [k, ls] of Object.entries(grupos)) {
+            const ids = new Set((novo[k] || []).map(l => l.id))
+            novo[k] = [...(novo[k] || []), ...ls.filter(l => !ids.has(l.id))]
+          }
         }
         return novo
       })
