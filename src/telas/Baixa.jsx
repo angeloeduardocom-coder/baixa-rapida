@@ -3,6 +3,7 @@ import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, 
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
+import RequisicaoPulverizacao from './RequisicaoPulverizacao'
 import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp, meuAparelho } from '../lib/nuvem'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
@@ -195,6 +196,8 @@ export default function Baixa() {
         </div>
         <input type="date" value={data} onChange={e => e.target.value && setData(e.target.value)} className={`${campo} font-semibold text-green-700`} />
       </div>
+
+      {ferti === 'pulv' && <RequisicaoPulverizacao data={data} />}
 
       {guardadas.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-1.5">
