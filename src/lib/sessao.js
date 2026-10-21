@@ -7,5 +7,10 @@ export const PERFIS_APP = [
   { id: 'gestor', rotulo: 'Gestor (vê tudo)', tipos: [1, 2, 'pulv'], senha: 'gestor123' },
 ]
 export const perfilDe = id => PERFIS_APP.find(p => p.id === id) || null
-// Transferência sem tipo (feita antes do login existir) aparece pra todos.
-export const transfVisivel = (t, perfil) => !perfil || perfil.id === 'gestor' || t.tipo == null || perfil.tipos.includes(t.tipo)
+// Transferência sem tipo (feita antes do login existir, ou na tela de Transferência da Adubação
+// do sistema) é das Ferti — não aparece pra Pulverização.
+export const transfVisivel = (t, perfil) => {
+  if (!perfil || perfil.id === 'gestor') return true
+  if (t.tipo == null) return perfil.tipos.includes(1) || perfil.tipos.includes(2)
+  return perfil.tipos.includes(t.tipo)
+}
