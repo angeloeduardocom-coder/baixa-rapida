@@ -307,7 +307,7 @@ export default function Baixa({ perfil, nome }) {
           <label className="block">
             <span className="text-xs font-semibold text-gray-500">Quantidade</span>
             <div className="flex gap-1.5">
-              <input inputMode="decimal" value={l.quant ?? ''} onChange={e => atualizar(l.id, 'quant', e.target.value)} placeholder="0,0" className={campo} />
+              <input inputMode="text" value={l.quant ?? ''} onChange={e => atualizar(l.id, 'quant', e.target.value)} placeholder="Ex.: 25 ou 0,60 gramas" className={campo} />
               {/* Unidade fixa, a que veio do cadastro do produto (não troca aqui). */}
               <span className="px-4 flex items-center rounded-xl border border-gray-200 font-bold text-green-700 bg-green-50 shrink-0">{l.unidade}</span>
             </div>
