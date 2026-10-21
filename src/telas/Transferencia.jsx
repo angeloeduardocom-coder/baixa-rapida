@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Trash2, X, Send, Copy, Check, Camera, ImagePlus } from 'lucide-react'
+import { Plus, Trash2, X, Send, Copy, Check, Camera, ImagePlus, Cloud, CloudOff } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { comprimirImagem, carimbarFoto, salvarFotoLocal, lerFotosLocais } from '../lib/fotos'
 import { textoTransferencias, abrirWhatsapp } from '../lib/textos'
+import { nuvemLigada, sincronizarTransferencias, enviarFoto, baixarFoto } from '../lib/nuvem'
 
 const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-2.5 text-base bg-white outline-none'
 
@@ -61,6 +62,72 @@ export default function Transferencia() {
 
   useEffect(() => { lerFotosLocais().then(setFotos).catch(() => {}) }, [])
 
+  // ---------- Nuvem ----------
+  // Itens apagados neste aparelho (pra não voltarem da nuvem) e estado da sincronização.
+  const [apagados, setApagados] = useLocal('transf:apagados', [])
+  const [estadoNuvem, setEstadoNuvem] = useState(nuvemLigada ? 'sincronizando' : 'desligada')
+  const listaRef = useRef(lista); listaRef.current = lista
+  const fotosRef = useRef(fotos); fotosRef.current = fotos
+  const ultimoEnvio = useRef('')
+  const rodando = useRef(false)
+
+  async function sincronizar() {
+    if (!nuvemLigada || rodando.current) return
+    rodando.current = true
+    try {
+      // 1) Sobe as fotos novas (tiradas aqui e ainda sem endereço na nuvem).
+      const inicio = listaRef.current
+      let local = inicio
+      for (const t of local) {
+        const src = fotosRef.current[`${t.id}:fotoTransf`]
+        if (src && !t.fotoTransfUrl && src.startsWith('data:')) {
+          const url = await enviarFoto(t.id, src)
+          local = local.map(x => (x.id === t.id ? { ...x, fotoTransfUrl: url } : x))
+        }
+      }
+      // 2) Junta com a nuvem e grava.
+      const junta = await sincronizarTransferencias(local, apagados)
+      ultimoEnvio.current = JSON.stringify(junta)
+      setLista(cur => {
+        if (cur === inicio) return junta
+        // Mexeram durante a sincronização: mantém o que foi digitado, só põe os endereços das
+        // fotos e os itens novos da nuvem (a próxima sincronização sobe o resto).
+        const urls = new Map(local.filter(x => x.fotoTransfUrl).map(x => [x.id, x.fotoTransfUrl]))
+        const ids = new Set(cur.map(x => x.id))
+        return [...cur.map(x => (urls.has(x.id) && !x.fotoTransfUrl && x.fotoTransfUrl !== null ? { ...x, fotoTransfUrl: urls.get(x.id) } : x)), ...junta.filter(x => !ids.has(x.id) && !inicio.some(i => i.id === x.id))]
+      })
+      setEstadoNuvem('ok')
+    } catch {
+      setEstadoNuvem('pendente')
+    } finally { rodando.current = false }
+  }
+
+  // Ao abrir, quando a internet volta e 1,5 s depois de cada mudança.
+  useEffect(() => {
+    if (!nuvemLigada) return
+    window.addEventListener('online', sincronizar)
+    return () => window.removeEventListener('online', sincronizar)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apagados])
+  useEffect(() => {
+    if (!nuvemLigada || JSON.stringify(lista) === ultimoEnvio.current) return
+    setEstadoNuvem('sincronizando')
+    const t = setTimeout(sincronizar, 1500)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lista, apagados])
+
+  // Fotos que vieram de outro celular: baixa as do dia aberto pra mostrar e mandar no WhatsApp.
+  useEffect(() => {
+    for (const t of lista) {
+      const k = `${t.id}:fotoTransf`
+      if (t.data === data && t.fotoTransfUrl && !fotos[k]) {
+        baixarFoto(t.fotoTransfUrl).then(src => setFotos(f => (f[k] ? f : { ...f, [k]: src }))).catch(() => {})
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, lista])
+
   const doDia = lista.filter(t => t.data === data)
   const comFotos = doDia.map(t => ({ ...t, temFotoTransf: !!fotos[`${t.id}:fotoTransf`], temFotoDevolucao: false }))
   const nomes = useMemo(() => PRODUTOS.map(p => p.nome), [])
@@ -71,11 +138,14 @@ export default function Transferencia() {
     ;['fotoTransf', 'fotoDevolucao'].forEach(c => salvarFotoLocal(`${id}:${c}`, '').catch(() => {}))
     setFotos(f => { const n = { ...f }; delete n[`${id}:fotoTransf`]; delete n[`${id}:fotoDevolucao`]; return n })
     setLista(l => l.filter(t => t.id !== id))
+    setApagados(a => (a.includes(id) ? a : [...a, id]))
   }
   function setFoto(id, c, valor) {
     const chave = `${id}:${c}`
     setFotos(f => { const n = { ...f }; if (valor) n[chave] = valor; else delete n[chave]; return n })
     salvarFotoLocal(chave, valor).then(() => setErro('')).catch(() => setErro('Não consegui guardar a foto neste aparelho.'))
+    // Foto trocada ou removida: a da nuvem deixa de valer (a nova sobe na próxima sincronização).
+    if (c === 'fotoTransf') atualizar(id, 'fotoTransfUrl', null)
   }
 
   async function arquivosFotos(itens) {
@@ -112,6 +182,12 @@ export default function Transferencia() {
       <div className="bg-white rounded-2xl border border-gray-200 p-3">
         <p className="text-sm font-bold text-gray-700 mb-2">Saldo anterior e transferências</p>
         <input type="date" value={data} onChange={e => e.target.value && setData(e.target.value)} className={`${campo} font-semibold text-green-700`} />
+        {nuvemLigada && (
+          <p className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${estadoNuvem === 'ok' ? 'text-sky-700' : estadoNuvem === 'pendente' ? 'text-amber-700' : 'text-gray-400'}`}>
+            {estadoNuvem === 'pendente' ? <CloudOff size={14} /> : <Cloud size={14} />}
+            {estadoNuvem === 'ok' ? 'Na nuvem — fotos e dados visíveis no sistema' : estadoNuvem === 'pendente' ? 'Sem internet — salvo no aparelho, sobe sozinho depois' : 'Sincronizando…'}
+          </p>
+        )}
       </div>
       <datalist id="produtos-transf">{nomes.map(n => <option key={n} value={n} />)}</datalist>
       {erro && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{erro}</p>}

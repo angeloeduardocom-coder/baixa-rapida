@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
-import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, FolderOpen, RotateCcw } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, FolderOpen, RotateCcw, Cloud, CloudOff } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
+import { nuvemLigada, lerBaixasNuvem, enviarBaixaNuvem, paraApp } from '../lib/nuvem'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
 // Busca sem acento e sem diferença de maiúscula (ex: "magnesio" acha "SULFATO DE MAGNÉSIO").
@@ -35,6 +36,12 @@ export default function Baixa() {
   // do dia for limpa ou a data mudar, dá pra abrir/recuperar daqui. Chave = "data|tipo".
   const [salvos, setSalvos] = useLocal('baixa:salvos', {})
   const [aviso, setAviso] = useState('')
+  // Nuvem: ids que este aparelho já viu em cada "data|tipo" (pra saber o que foi apagado aqui)
+  // e a fila do que ficou sem subir por falta de internet.
+  const [conhecidos, setConhecidos] = useLocal('baixa:conhecidos', {})
+  const [fila, setFila] = useLocal('baixa:filaNuvem', [])
+  const porDiaRef = useRef(porDia); porDiaRef.current = porDia
+  const conhecidosRef = useRef(conhecidos); conhecidosRef.current = conhecidos
 
   const chave = `${data}|${ferti}`
   // Baixa antiga tinha Consumo e Quant. separados — agora é um campo só (Quantidade).
@@ -76,14 +83,58 @@ export default function Baixa() {
   const salvo = salvos[chave]
   const salvoAtual = salvo && mesmaLista(salvo.linhas, linhas)
 
-  function salvar(marcarEnviado = false) {
-    const agora = new Date().toISOString()
-    setSalvos(s => ({ ...s, [chave]: { linhas, salvoEm: agora, enviadoEm: marcarEnviado ? agora : s[chave]?.enviadoEm || null } }))
-    if (!marcarEnviado) {
-      setAviso(`Baixa salva neste aparelho às ${hora(agora)}`)
-      setTimeout(() => setAviso(''), 2500)
+  // Sobe uma baixa ("data|tipo") pra nuvem. Sem internet, entra na fila e tenta de novo depois.
+  async function subir(k, ls) {
+    if (!nuvemLigada) return false
+    const [d, t] = k.split('|')
+    try {
+      const deFora = await enviarBaixaNuvem(d, tipoDaChave(t), ls, conhecidosRef.current[k] || [])
+      if (deFora.length) setPorDia(p => ({ ...p, [k]: [...(p[k] || []), ...deFora.map(i => paraApp(i, PRODUTOS))] }))
+      setConhecidos(c => ({ ...c, [k]: [...new Set([...(c[k] || []), ...ls.map(l => l.id), ...deFora.map(l => l.id)])] }))
+      setSalvos(s => (s[k] ? { ...s, [k]: { ...s[k], nuvemEm: new Date().toISOString() } } : s))
+      setFila(f => f.filter(x => x !== k))
+      return true
+    } catch {
+      setFila(f => (f.includes(k) ? f : [...f, k]))
+      return false
     }
   }
+
+  async function salvar(marcarEnviado = false) {
+    const agora = new Date().toISOString()
+    setSalvos(s => ({ ...s, [chave]: { linhas, salvoEm: agora, enviadoEm: marcarEnviado ? agora : s[chave]?.enviadoEm || null, nuvemEm: s[chave]?.nuvemEm || null } }))
+    const foi = await subir(chave, linhas)
+    if (!marcarEnviado) {
+      setAviso(!nuvemLigada ? `Baixa salva neste aparelho às ${hora(agora)}`
+        : foi ? `Baixa salva na nuvem às ${hora(agora)}` : 'Salva no aparelho. Vai para a nuvem quando tiver internet.')
+      setTimeout(() => setAviso(''), 3000)
+    }
+  }
+
+  // Ao abrir um dia vazio neste aparelho, traz o que já está na nuvem (feito em outro celular
+  // ou no sistema).
+  useEffect(() => {
+    if (!nuvemLigada || (porDiaRef.current[chave] || []).length) return
+    let ativo = true
+    lerBaixasNuvem(ferti).then(itens => {
+      const doDia = itens.filter(i => i.data === data)
+      if (!ativo || !doDia.length || (porDiaRef.current[chave] || []).length) return
+      setPorDia(p => ({ ...p, [chave]: doDia.map(i => paraApp(i, PRODUTOS)) }))
+      setConhecidos(c => ({ ...c, [chave]: doDia.map(i => i.id) }))
+    }).catch(() => {})
+    return () => { ativo = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chave])
+
+  // Fila: tenta subir de novo ao abrir o app e quando a internet volta.
+  useEffect(() => {
+    if (!nuvemLigada) return
+    const tentar = () => { for (const k of fila) subir(k, porDiaRef.current[k] || []) }
+    tentar()
+    window.addEventListener('online', tentar)
+    return () => window.removeEventListener('online', tentar)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fila.length])
   function recuperar() {
     if (salvo?.linhas?.length) setPorDia(p => ({ ...p, [chave]: salvo.linhas }))
   }
@@ -242,6 +293,11 @@ export default function Baixa() {
             {salvoAtual ? <Check size={20} /> : <Save size={20} />} {salvoAtual ? `Salva às ${hora(salvo.salvoEm)}` : 'Salvar baixa'}
           </button>
           {aviso && <p className="text-center text-sm font-semibold text-green-700">{aviso}</p>}
+          {nuvemLigada && salvo && (
+            fila.includes(chave)
+              ? <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700"><CloudOff size={14} /> Ainda não subiu para a nuvem — envia sozinho quando tiver internet.</p>
+              : salvo.nuvemEm && <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-sky-700"><Cloud size={14} /> Na nuvem às {hora(salvo.nuvemEm)} — o sistema já vê esta baixa.</p>
+          )}
           {!salvoAtual && salvo && <p className="text-center text-xs font-semibold text-amber-700">Tem alterações depois do último salvamento ({hora(salvo.salvoEm)}).</p>}
           <button onClick={enviar} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow">
             <Send size={20} /> {enviando ? 'Preparando…' : 'Enviar no WhatsApp'}

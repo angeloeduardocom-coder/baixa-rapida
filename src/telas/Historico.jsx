@@ -5,6 +5,8 @@ import { lerFotosLocais, carimbarFoto } from '../lib/fotos'
 import { tituloBaixa, textoBaixa, textoTransferencias, abrirWhatsapp } from '../lib/textos'
 import { valoresDaLinha } from '../lib/imagemTabela'
 import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
+import { PRODUTOS } from '../data/produtos'
+import { nuvemLigada, lerBaixasNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
 
 // Histórico / relatório: tudo o que foi lançado NESTE aparelho num dia — as baixas (Ferti 1,
@@ -28,9 +30,35 @@ function VisorFoto({ src, onFechar }) {
 }
 
 export default function Historico() {
-  const [porDia] = useState(() => ler('baixa:porDia', {}))
+  const [porDia, setPorDia] = useState(() => ler('baixa:porDia', {}))
   // Transferência adicionada e deixada em branco (sem produto e sem nenhum campo) não entra.
-  const [transfs] = useState(() => ler('transf:lista', []).filter(t => ['produto', 'saldoAnt', 'qtdeTransf', 'estoque', 'destino', 'devolucao'].some(c => String(t[c] ?? '').trim())))
+  const preenchida = t => ['produto', 'saldoAnt', 'qtdeTransf', 'estoque', 'destino', 'devolucao'].some(c => String(t[c] ?? '').trim())
+  const [transfs, setTransfs] = useState(() => ler('transf:lista', []).filter(preenchida))
+
+  // Com a nuvem ligada, o relatório mostra também o que foi lançado em outros celulares (e na
+  // tela do sistema). O que está neste aparelho vale primeiro.
+  useEffect(() => {
+    if (!nuvemLigada) return
+    let ativo = true
+    Promise.all([1, 2, 'pulv'].map(t => lerBaixasNuvem(t).then(itens => [t, itens]).catch(() => [t, []]))).then(res => {
+      if (!ativo) return
+      setPorDia(local => {
+        const novo = { ...local }
+        for (const [t, itens] of res) {
+          const grupos = {}
+          for (const i of itens) if (i.data) (grupos[`${i.data}|${t}`] ||= []).push(paraApp(i, PRODUTOS))
+          for (const [k, ls] of Object.entries(grupos)) if (!(novo[k] || []).length) novo[k] = ls
+        }
+        return novo
+      })
+    })
+    lerTransferenciasNuvem().then(remota => {
+      if (!ativo) return
+      setTransfs(local => { const ids = new Set(local.map(t => t.id)); return [...local, ...remota.filter(r => !ids.has(r.id) && preenchida(r))] })
+    }).catch(() => {})
+    return () => { ativo = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [fotos, setFotos] = useState({})
   const [foto, setFoto] = useState(null)
   const [copiado, setCopiado] = useState(false)
@@ -51,6 +79,14 @@ export default function Historico() {
 
   const baixas = TIPOS.map(([id, rotulo]) => ({ id, rotulo, linhas: porDia[`${dia}|${id}`] || [] })).filter(b => b.linhas.length)
   const transfDoDia = transfs.filter(t => t.data === dia)
+  // Fotos que estão só na nuvem (tiradas em outro celular): baixa as do dia aberto.
+  useEffect(() => {
+    for (const t of transfDoDia) {
+      const k = `${t.id}:fotoTransf`
+      if (t.fotoTransfUrl && !fotos[k]) baixarFoto(t.fotoTransfUrl).then(src => setFotos(f => (f[k] ? f : { ...f, [k]: src }))).catch(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dia, transfs])
   const fotosDoDia = transfDoDia.filter(t => fotos[`${t.id}:fotoTransf`])
   const totalProdutos = baixas.reduce((n, b) => n + b.linhas.length, 0)
   const vazio = baixas.length === 0 && transfDoDia.length === 0
