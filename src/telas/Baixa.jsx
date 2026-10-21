@@ -25,8 +25,11 @@ const mesmaLista = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || [])
 
 const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-2.5 text-base bg-white outline-none'
 
-export default function Baixa() {
-  const [ferti, setFerti] = useLocal('baixa:ferti', 2)
+export default function Baixa({ perfil, nome }) {
+  // Cada perfil só lança no(s) seu(s) campo(s): Ferti 1, Ferti 2 ou Pulverização (Gestor vê tudo).
+  const tipos = perfil?.tipos || [1, 2, 'pulv']
+  const [fertiSalvo, setFerti] = useLocal('baixa:ferti', tipos[0])
+  const ferti = tipos.includes(fertiSalvo) ? fertiSalvo : tipos[0]
   const [data, setData] = useState(hojeISO())
   const [porDia, setPorDia] = useLocal('baixa:porDia', {})
   const [extras, setExtras] = useLocal('baixa:produtosExtras', [])
@@ -93,7 +96,7 @@ export default function Baixa() {
     if (!nuvemLigada) return false
     const [d, t] = k.split('|')
     try {
-      const deOutros = await enviarBaixaNuvem(d, tipoDaChave(t), ls, conhecidosRef.current[k] || [])
+      const deOutros = await enviarBaixaNuvem(d, tipoDaChave(t), ls, conhecidosRef.current[k] || [], nome)
       if (k === chaveRef.current) setOutros(deOutros.map(i => paraApp(i, PRODUTOS)))
       setConhecidos(c => ({ ...c, [k]: ls.map(l => l.id) }))
       setSalvos(s => (s[k] ? { ...s, [k]: { ...s[k], nuvemEm: new Date().toISOString() } } : s))
@@ -157,11 +160,13 @@ export default function Baixa() {
   const guardadas = useMemo(() => {
     const ks = new Set([...Object.keys(porDia).filter(k => (porDia[k] || []).length), ...Object.keys(salvos).filter(k => salvos[k]?.linhas?.length)])
     ks.delete(chave)
+    for (const k of [...ks]) if (!tipos.includes(tipoDaChave(k.split('|')[1]))) ks.delete(k)
     return [...ks].sort((a, b) => b.localeCompare(a)).slice(0, 6).map(k => {
       const ls = (porDia[k] || []).length ? porDia[k] : salvos[k].linhas
       return { k, data: k.split('|')[0], tipo: NOME_TIPO[tipoDaChave(k.split('|')[1])] || k.split('|')[1], n: ls.length, enviado: !!salvos[k]?.enviadoEm && mesmaLista(salvos[k].linhas, ls) }
     })
-  }, [porDia, salvos, chave])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [porDia, salvos, chave, perfil?.id])
 
   const titulo = tituloBaixa(ferti, data)
   const texto = textoBaixa(ferti, data, linhas)
@@ -188,7 +193,7 @@ export default function Baixa() {
     <div className="space-y-4">
       <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-3">
         <div className="flex gap-2">
-          {[[1, 'Ferti 1'], [2, 'Ferti 2'], ['pulv', 'Pulverização']].map(([n, rotulo]) => (
+          {[[1, 'Ferti 1'], [2, 'Ferti 2'], ['pulv', 'Pulverização']].filter(([n]) => tipos.includes(n)).map(([n, rotulo]) => (
             <button key={n} onClick={() => setFerti(n)} className={`flex-1 py-3 px-1 rounded-xl font-bold text-[15px] border-2 transition-colors ${ferti === n ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-200 text-gray-600'}`}>
               {rotulo}
             </button>
@@ -197,7 +202,7 @@ export default function Baixa() {
         <input type="date" value={data} onChange={e => e.target.value && setData(e.target.value)} className={`${campo} font-semibold text-green-700`} />
       </div>
 
-      {ferti === 'pulv' && <RequisicaoPulverizacao data={data} />}
+      {ferti === 'pulv' && <RequisicaoPulverizacao data={data} autor={nome} />}
 
       {guardadas.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-1.5">

@@ -4,6 +4,7 @@ import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { comprimirImagem, carimbarFoto, salvarFotoLocal, lerFotosLocais } from '../lib/fotos'
 import { textoTransferencias, abrirWhatsapp } from '../lib/textos'
+import { transfVisivel } from '../lib/sessao'
 import { nuvemLigada, sincronizarTransferencias, enviarFoto, baixarFoto } from '../lib/nuvem'
 
 const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-2.5 text-base bg-white outline-none'
@@ -52,7 +53,7 @@ function CampoFoto({ rotulo, valor, onChange }) {
 
 const CAMPOS = [['saldoAnt', '📊 Saldo ant.'], ['qtdeTransf', '📦 Qtde transf.'], ['estoque', '🏠 Estoque'], ['destino', '🏠 Destino']]
 
-export default function Transferencia() {
+export default function Transferencia({ perfil, nome }) {
   const [lista, setLista] = useLocal('transf:lista', [])
   const [fotos, setFotos] = useState({}) // { 'id:campo': dataUrl }
   const [data, setData] = useState(hojeISO())
@@ -128,11 +129,11 @@ export default function Transferencia() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, lista])
 
-  const doDia = lista.filter(t => t.data === data)
+  const doDia = lista.filter(t => t.data === data && transfVisivel(t, perfil))
   const comFotos = doDia.map(t => ({ ...t, temFotoTransf: !!fotos[`${t.id}:fotoTransf`], temFotoDevolucao: false }))
   const nomes = useMemo(() => PRODUTOS.map(p => p.nome), [])
 
-  const adicionar = () => setLista(l => [...l, { id: uid(), data, produto: '', saldoAnt: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '' }])
+  const adicionar = () => setLista(l => [...l, { id: uid(), data, tipo: perfil?.tipos?.length === 1 ? perfil.tipos[0] : null, autor: nome || null, produto: '', saldoAnt: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '' }])
   const atualizar = (id, c, v) => setLista(l => l.map(t => (t.id === id ? { ...t, [c]: v } : t)))
   function remover(id) {
     ;['fotoTransf', 'fotoDevolucao'].forEach(c => salvarFotoLocal(`${id}:${c}`, '').catch(() => {}))

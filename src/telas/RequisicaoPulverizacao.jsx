@@ -6,7 +6,7 @@ import { ClipboardList, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 // Aparece sozinha quando a programação do dia é feita. Precisa de internet.
 const SISTEMA = (import.meta.env.VITE_URL_SISTEMA || 'https://robo-agr-cola.vercel.app').replace(/\/+$/, '')
 
-export default function RequisicaoPulverizacao({ data }) {
+export default function RequisicaoPulverizacao({ data, autor }) {
   const [aberta, setAberta] = useState(() => { try { return localStorage.getItem('req:aberta') !== '0' } catch { return true } })
   const [altura, setAltura] = useState(600)
   const [versao, setVersao] = useState(0)
@@ -38,7 +38,7 @@ export default function RequisicaoPulverizacao({ data }) {
               <iframe
                 key={`${data}-${versao}`}
                 title="Requisição do dia"
-                src={`${SISTEMA}/app-requisicao?embed=1&data=${data}`}
+                src={`${SISTEMA}/app-requisicao?embed=1&data=${data}&autor=${encodeURIComponent(autor ? `${autor} (app)` : 'App Baixa Rápida')}`}
                 style={{ height: altura }}
                 className="w-full block border-0"
               />

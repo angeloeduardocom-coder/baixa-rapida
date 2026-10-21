@@ -62,7 +62,7 @@ const numero = v => {
 export const quantTexto = q => (q === null || q === undefined ? '' : String(q).replace('.', ','))
 
 // Linha do app ⇄ item do sistema.
-export const paraServidor = (l, data) => ({ id: l.id, data, produto: l.produto, quantidade: numero(l.quant), unidade: l.unidade || null, transferencia: l.transferencia ?? null, local: l.local ?? null, origem: 'app', aparelho: meuAparelho })
+export const paraServidor = (l, data, autor) => ({ autor: autor || null, id: l.id, data, produto: l.produto, quantidade: numero(l.quant), unidade: l.unidade || null, transferencia: l.transferencia ?? null, local: l.local ?? null, origem: 'app', aparelho: meuAparelho })
 // Sem unidade (lançado na tela do sistema): pega a do cadastro de produtos do app.
 export const paraApp = (i, catalogo = []) => ({ id: i.id, produto: i.produto || '', unidade: i.unidade || catalogo.find(p => p.nome.toUpperCase() === String(i.produto || '').toUpperCase())?.unidade || 'L', quant: quantTexto(i.quantidade), origem: i.origem || 'sistema', transferencia: i.transferencia ?? null, local: i.local ?? null })
 
@@ -82,13 +82,13 @@ export async function lerBaixasNuvem(tipo) {
 // Grava a baixa de um dia DESTE celular: troca só os itens daquele dia que são deste aparelho
 // (ou que este aparelho já enviou antes — `enviados`), e mantém tudo o que outras pessoas
 // lançaram (outros celulares e a tela do sistema).
-export async function enviarBaixaNuvem(data, tipo, linhas, enviados = []) {
+export async function enviarBaixaNuvem(data, tipo, linhas, enviados = [], autor = '') {
   if (!supabase) throw new Error('sem nuvem')
   const t = tabela(tipo)
   const atual = await lerLista(tipo)
   const meus = new Set([...linhas.map(l => l.id), ...enviados])
   const eMeu = i => i.data === data && (i.aparelho === meuAparelho || meus.has(i.id))
-  const lista = [...atual.filter(i => !eMeu(i)), ...linhas.map(l => paraServidor(l, data))]
+  const lista = [...atual.filter(i => !eMeu(i)), ...linhas.map(l => paraServidor(l, data, autor))]
   const { error } = await supabase.from(t.nome).update({ baixa: lista, atualizado_em: new Date().toISOString() }).eq(t.coluna, t.valor)
   if (error) throw error
   return atual.filter(i => i.data === data && !eMeu(i))

@@ -6,6 +6,7 @@ import { tituloBaixa, textoBaixa, textoTransferencias, abrirWhatsapp } from '../
 import { valoresDaLinha } from '../lib/imagemTabela'
 import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
 import { PRODUTOS } from '../data/produtos'
+import { transfVisivel } from '../lib/sessao'
 import { nuvemLigada, lerBaixasNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
 
@@ -29,7 +30,9 @@ function VisorFoto({ src, onFechar }) {
   )
 }
 
-export default function Historico() {
+export default function Historico({ perfil }) {
+  const tiposPerfil = perfil?.tipos || [1, 2, 'pulv']
+  const tipoOk = t => tiposPerfil.includes(t === 'pulv' ? 'pulv' : Number(t))
   const [porDia, setPorDia] = useState(() => ler('baixa:porDia', {}))
   // Transferência adicionada e deixada em branco (sem produto e sem nenhum campo) não entra.
   const preenchida = t => ['produto', 'saldoAnt', 'qtdeTransf', 'estoque', 'destino', 'devolucao'].some(c => String(t[c] ?? '').trim())
@@ -73,16 +76,16 @@ export default function Historico() {
   // Dias que têm alguma coisa (baixa com produto ou transferência), mais novo primeiro.
   const dias = useMemo(() => {
     const s = new Set()
-    for (const [chave, linhas] of Object.entries(porDia)) if ((linhas || []).length) s.add(chave.split('|')[0])
-    for (const t of transfs) if (t.data) s.add(t.data)
+    for (const [chave, linhas] of Object.entries(porDia)) if ((linhas || []).length && tipoOk(chave.split('|')[1])) s.add(chave.split('|')[0])
+    for (const t of transfs) if (t.data && transfVisivel(t, perfil)) s.add(t.data)
     return [...s].sort().reverse()
   }, [porDia, transfs])
 
   const [dia, setDia] = useState(() => dias[0] || hojeISO())
   const idx = dias.indexOf(dia)
 
-  const baixas = TIPOS.map(([id, rotulo]) => ({ id, rotulo, linhas: porDia[`${dia}|${id}`] || [] })).filter(b => b.linhas.length)
-  const transfDoDia = transfs.filter(t => t.data === dia)
+  const baixas = TIPOS.filter(([id]) => tipoOk(id)).map(([id, rotulo]) => ({ id, rotulo, linhas: porDia[`${dia}|${id}`] || [] })).filter(b => b.linhas.length)
+  const transfDoDia = transfs.filter(t => t.data === dia && transfVisivel(t, perfil))
   // Fotos que estão só na nuvem (tiradas em outro celular): baixa as do dia aberto.
   useEffect(() => {
     for (const t of transfDoDia) {
