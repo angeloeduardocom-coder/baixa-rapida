@@ -241,7 +241,7 @@ export default function Historico() {
                 {copiado ? <><Check size={16} className="text-green-600" /> Copiado</> : <><Copy size={16} /> Copiar texto</>}
               </button>
             </div>
-            <p className="text-[11px] text-gray-400 text-center">Mostra o que foi lançado neste celular. As fotos vão junto quando o celular deixa compartilhar.</p>
+            <p className="text-[11px] text-gray-400 text-center">{nuvemLigada ? "Mostra o que todos lançaram (este celular e os outros, pela nuvem)." : "Mostra o que foi lançado neste celular."} As fotos vão junto quando o celular deixa compartilhar.</p>
           </div>
         </>
       )}
