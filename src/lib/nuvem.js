@@ -94,6 +94,14 @@ export async function enviarBaixaNuvem(data, tipo, linhas, enviados = [], autor 
   return atual.filter(i => i.data === data && !eMeu(i))
 }
 
+// Dias que têm programação de pulverização no sistema (pra listar as requisições passadas).
+export async function lerDiasComProgramacao(limite = 60) {
+  if (!supabase) return []
+  const { data, error } = await supabase.from('aplicacoes').select('data').eq('arquivado', false).order('data', { ascending: false }).limit(limite)
+  if (error) throw error
+  return [...new Set((data || []).map(r => r.data).filter(Boolean))]
+}
+
 // ---------- Transferências ----------
 export async function lerTransferenciasNuvem() {
   if (!supabase) return []

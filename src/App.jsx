@@ -34,7 +34,7 @@ export default function App() {
       </header>
       <main className="p-3 pb-[calc(6rem+env(safe-area-inset-bottom))]">
         {erroNuvem && <p className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{erroNuvem}</p>}
-        {aba === 'baixa' ? <Baixa perfil={perfil} nome={sessao.nome} /> : aba === 'historico' ? <Historico perfil={perfil} /> : <Transferencia perfil={perfil} nome={sessao.nome} />}
+        {aba === 'baixa' ? <Baixa perfil={perfil} nome={sessao.nome} /> : aba === 'historico' ? <Historico perfil={perfil} nome={sessao.nome} /> : <Transferencia perfil={perfil} nome={sessao.nome} />}
       </main>
       <nav className="fixed bottom-0 inset-x-0 z-20 bg-white border-t border-gray-200 shadow-2xl pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-xl mx-auto grid grid-cols-3">

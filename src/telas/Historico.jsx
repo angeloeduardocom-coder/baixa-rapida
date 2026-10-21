@@ -7,7 +7,8 @@ import { valoresDaLinha } from '../lib/imagemTabela'
 import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
 import { PRODUTOS } from '../data/produtos'
 import { transfVisivel } from '../lib/sessao'
-import { nuvemLigada, lerBaixasNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
+import RequisicaoPulverizacao from './RequisicaoPulverizacao'
+import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
 
 // Histórico / relatório: tudo o que foi lançado NESTE aparelho num dia — as baixas (Ferti 1,
@@ -30,7 +31,11 @@ function VisorFoto({ src, onFechar }) {
   )
 }
 
-export default function Historico({ perfil }) {
+export default function Historico({ perfil, nome }) {
+  // Perfil Pulverização: histórico = baixa de Pulverização + a requisição de cada dia (sem transferências).
+  const soPulv = perfil?.id === 'pulv'
+  const [diasProgramacao, setDiasProgramacao] = useState([])
+  useEffect(() => { if (soPulv) lerDiasComProgramacao().then(setDiasProgramacao).catch(() => {}) }, [soPulv])
   const tiposPerfil = perfil?.tipos || [1, 2, 'pulv']
   const tipoOk = t => tiposPerfil.includes(t === 'pulv' ? 'pulv' : Number(t))
   const [porDia, setPorDia] = useState(() => ler('baixa:porDia', {}))
@@ -77,15 +82,17 @@ export default function Historico({ perfil }) {
   const dias = useMemo(() => {
     const s = new Set()
     for (const [chave, linhas] of Object.entries(porDia)) if ((linhas || []).length && tipoOk(chave.split('|')[1])) s.add(chave.split('|')[0])
-    for (const t of transfs) if (t.data && transfVisivel(t, perfil)) s.add(t.data)
+    if (!soPulv) for (const t of transfs) if (t.data && transfVisivel(t, perfil)) s.add(t.data)
+    if (soPulv) for (const x of diasProgramacao) if (x <= hojeISO()) s.add(x)
     return [...s].sort().reverse()
-  }, [porDia, transfs])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [porDia, transfs, diasProgramacao])
 
   const [dia, setDia] = useState(() => dias[0] || hojeISO())
   const idx = dias.indexOf(dia)
 
   const baixas = TIPOS.filter(([id]) => tipoOk(id)).map(([id, rotulo]) => ({ id, rotulo, linhas: porDia[`${dia}|${id}`] || [] })).filter(b => b.linhas.length)
-  const transfDoDia = transfs.filter(t => t.data === dia && transfVisivel(t, perfil))
+  const transfDoDia = soPulv ? [] : transfs.filter(t => t.data === dia && transfVisivel(t, perfil))
   // Fotos que estão só na nuvem (tiradas em outro celular): baixa as do dia aberto.
   useEffect(() => {
     for (const t of transfDoDia) {
@@ -96,7 +103,8 @@ export default function Historico({ perfil }) {
   }, [dia, transfs])
   const fotosDoDia = transfDoDia.filter(t => fotos[`${t.id}:fotoTransf`])
   const totalProdutos = baixas.reduce((n, b) => n + b.linhas.length, 0)
-  const vazio = baixas.length === 0 && transfDoDia.length === 0
+  const temRequisicao = soPulv && diasProgramacao.includes(dia)
+  const vazio = baixas.length === 0 && transfDoDia.length === 0 && !temRequisicao
 
   const textoCompleto = useMemo(() => {
     const partes = [`*RELATÓRIO DO DIA ${dataBR(dia)}*`]
@@ -178,11 +186,11 @@ export default function Historico({ perfil }) {
       ) : (
         <>
           {/* Resumo */}
-          <div className="grid grid-cols-3 gap-2">
+          {!soPulv && <div className="grid grid-cols-3 gap-2">
             <div className="bg-white rounded-2xl border border-gray-200 p-3 text-center"><ClipboardList size={18} className="mx-auto text-green-600" /><p className="text-2xl font-bold text-gray-800">{totalProdutos}</p><p className="text-xs text-gray-500">produtos na baixa</p></div>
             <div className="bg-white rounded-2xl border border-gray-200 p-3 text-center"><ArrowRightLeft size={18} className="mx-auto text-blue-600" /><p className="text-2xl font-bold text-gray-800">{transfDoDia.length}</p><p className="text-xs text-gray-500">transferências</p></div>
             <div className="bg-white rounded-2xl border border-gray-200 p-3 text-center"><Camera size={18} className="mx-auto text-amber-600" /><p className="text-2xl font-bold text-gray-800">{fotosDoDia.length}</p><p className="text-xs text-gray-500">fotos</p></div>
-          </div>
+          </div>}
 
           {/* Baixas */}
           {baixas.map(b => (
@@ -204,6 +212,9 @@ export default function Historico({ perfil }) {
               </table>
             </div>
           ))}
+
+          {soPulv && baixas.length === 0 && <p className="text-center text-sm text-gray-400 py-2">Nenhuma baixa de Pulverização lançada em {dataBR(dia)}.</p>}
+          {soPulv && temRequisicao && <RequisicaoPulverizacao data={dia} autor={nome} />}
 
           {/* Transferências */}
           {transfDoDia.length > 0 && (
