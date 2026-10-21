@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X } from 'lucide-react'
+import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, FolderOpen, RotateCcw } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
-import { useLocal, uid, hojeISO } from '../lib/useLocal'
+import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
@@ -16,6 +16,11 @@ function Destaque({ texto, termo }) {
   return <>{texto.slice(0, i)}<mark className="bg-yellow-200 rounded px-0.5">{texto.slice(i, i + t.length)}</mark>{texto.slice(i + t.length)}</>
 }
 
+const NOME_TIPO = { 1: 'Ferti 1', 2: 'Ferti 2', pulv: 'Pulverização' }
+const tipoDaChave = t => (t === 'pulv' ? 'pulv' : Number(t))
+const hora = iso => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+const mesmaLista = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || [])
+
 const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-2.5 text-base bg-white outline-none'
 
 export default function Baixa() {
@@ -26,6 +31,10 @@ export default function Baixa() {
   const [busca, setBusca] = useState('')
   const [copiado, setCopiado] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  // Cópia de segurança de cada baixa, feita no botão Salvar (e ao enviar): mesmo se a lista
+  // do dia for limpa ou a data mudar, dá pra abrir/recuperar daqui. Chave = "data|tipo".
+  const [salvos, setSalvos] = useLocal('baixa:salvos', {})
+  const [aviso, setAviso] = useState('')
 
   const chave = `${data}|${ferti}`
   // Baixa antiga tinha Consumo e Quant. separados — agora é um campo só (Quantidade).
@@ -64,11 +73,44 @@ export default function Baixa() {
   const atualizar = (id, c, v) => setLinhas(ls => ls.map(l => (l.id === id ? { ...l, [c]: v } : l)))
   const remover = id => setLinhas(ls => ls.filter(l => l.id !== id))
 
+  const salvo = salvos[chave]
+  const salvoAtual = salvo && mesmaLista(salvo.linhas, linhas)
+
+  function salvar(marcarEnviado = false) {
+    const agora = new Date().toISOString()
+    setSalvos(s => ({ ...s, [chave]: { linhas, salvoEm: agora, enviadoEm: marcarEnviado ? agora : s[chave]?.enviadoEm || null } }))
+    if (!marcarEnviado) {
+      setAviso(`Baixa salva neste aparelho às ${hora(agora)}`)
+      setTimeout(() => setAviso(''), 2500)
+    }
+  }
+  function recuperar() {
+    if (salvo?.linhas?.length) setPorDia(p => ({ ...p, [chave]: salvo.linhas }))
+  }
+  // Abre uma baixa guardada de outro dia/tipo (a data volta pra hoje sempre que o app abre,
+  // então a de ontem "sumia" da tela — ela continua aqui).
+  function abrirGuardada(k) {
+    const [d, t] = k.split('|')
+    setData(d)
+    setFerti(tipoDaChave(t))
+    if (!(porDia[k] || []).length && salvos[k]?.linhas?.length) setPorDia(p => ({ ...p, [k]: salvos[k].linhas }))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const guardadas = useMemo(() => {
+    const ks = new Set([...Object.keys(porDia).filter(k => (porDia[k] || []).length), ...Object.keys(salvos).filter(k => salvos[k]?.linhas?.length)])
+    ks.delete(chave)
+    return [...ks].sort((a, b) => b.localeCompare(a)).slice(0, 6).map(k => {
+      const ls = (porDia[k] || []).length ? porDia[k] : salvos[k].linhas
+      return { k, data: k.split('|')[0], tipo: NOME_TIPO[tipoDaChave(k.split('|')[1])] || k.split('|')[1], n: ls.length, enviado: !!salvos[k]?.enviadoEm && mesmaLista(salvos[k].linhas, ls) }
+    })
+  }, [porDia, salvos, chave])
+
   const titulo = tituloBaixa(ferti, data)
   const texto = textoBaixa(ferti, data, linhas)
 
   async function enviar() {
     if (!linhas.length || enviando) return
+    salvar(true) // sempre guarda antes de mandar
     setEnviando(true)
     try {
       const blob = await gerarExcelBaixa(titulo, linhas)
@@ -96,6 +138,20 @@ export default function Baixa() {
         </div>
         <input type="date" value={data} onChange={e => e.target.value && setData(e.target.value)} className={`${campo} font-semibold text-green-700`} />
       </div>
+
+      {guardadas.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-1.5">
+          <p className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><FolderOpen size={16} className="text-green-700" /> Baixas guardadas neste aparelho</p>
+          {guardadas.map(g => (
+            <button key={g.k} onClick={() => abrirGuardada(g.k)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 active:bg-green-50 text-left">
+              <span className="font-bold text-gray-800">{diaMes(g.data)}</span>
+              <span className="text-sm text-gray-600">{g.tipo}</span>
+              <span className="text-xs text-gray-400">· {g.n} produto(s)</span>
+              <span className={`ml-auto text-[11px] font-bold rounded-full px-2 py-0.5 ${g.enviado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{g.enviado ? 'Enviada' : 'Não enviada'}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-2">
         <p className="text-sm font-bold text-gray-700">Adicionar produto</p>
@@ -156,6 +212,11 @@ export default function Baixa() {
         </div>
       </div>
 
+      {linhas.length === 0 && salvo?.linhas?.length > 0 && (
+        <button onClick={recuperar} className="w-full flex items-center justify-center gap-2 bg-amber-50 border-2 border-amber-300 text-amber-800 font-bold rounded-2xl py-3.5">
+          <RotateCcw size={18} /> Recuperar baixa salva ({salvo.linhas.length} produto(s), às {hora(salvo.salvoEm)})
+        </button>
+      )}
       {linhas.length === 0 && <p className="text-center text-gray-400 py-8">Toque na barra acima e escolha os produtos para montar a baixa do dia.</p>}
 
       {linhas.map(l => (
@@ -177,6 +238,11 @@ export default function Baixa() {
 
       {linhas.length > 0 && (
         <div className="space-y-2 pt-1">
+          <button onClick={() => salvar()} className={`w-full flex items-center justify-center gap-2 font-bold text-lg rounded-2xl py-3.5 border-2 ${salvoAtual ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-green-600 text-green-700 active:bg-green-50'}`}>
+            {salvoAtual ? <Check size={20} /> : <Save size={20} />} {salvoAtual ? `Salva às ${hora(salvo.salvoEm)}` : 'Salvar baixa'}
+          </button>
+          {aviso && <p className="text-center text-sm font-semibold text-green-700">{aviso}</p>}
+          {!salvoAtual && salvo && <p className="text-center text-xs font-semibold text-amber-700">Tem alterações depois do último salvamento ({hora(salvo.salvoEm)}).</p>}
           <button onClick={enviar} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow">
             <Send size={20} /> {enviando ? 'Preparando…' : 'Enviar no WhatsApp'}
           </button>
@@ -184,7 +250,7 @@ export default function Baixa() {
             <button onClick={copiar} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700">{copiado ? <Check size={16} className="text-green-600" /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Texto'}</button>
             <button onClick={() => { if (confirm('Limpar a baixa deste dia?')) setLinhas(() => []) }} className="flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-red-600"><Eraser size={16} /> Limpar</button>
           </div>
-          <p className="text-[11px] text-gray-400 text-center">No celular abre o WhatsApp com a planilha em Excel. No computador baixa o Excel e abre o WhatsApp.</p>
+          <p className="text-[11px] text-gray-400 text-center">Ao enviar, a baixa também é salva. No celular abre o WhatsApp com a planilha em Excel. No computador baixa o Excel e abre o WhatsApp.</p>
         </div>
       )}
     </div>
