@@ -14,6 +14,11 @@ import { createClient } from '@supabase/supabase-js'
 const limpar = v => String(v || '').trim().replace(/^["']|["']$/g, '').trim()
 let URL_NUVEM = limpar(import.meta.env.VITE_SUPABASE_URL).replace(/\/+$/, '')
 if (URL_NUVEM && !/^https?:\/\//i.test(URL_NUVEM)) URL_NUVEM = `https://${URL_NUVEM}`
+// Link do painel colado no lugar da URL da API (supabase.com/dashboard/project/<id>) → https://<id>.supabase.co
+const doPainel = URL_NUVEM.match(/supabase\.com\/dashboard\/project\/([a-z0-9]+)/i)
+if (doPainel) URL_NUVEM = `https://${doPainel[1]}.supabase.co`
+URL_NUVEM = URL_NUVEM.replace(/\/(rest|auth|storage)\/v1.*$/i, '')
+export const enderecoNuvem = URL_NUVEM
 const CHAVE_NUVEM = limpar(import.meta.env.VITE_SUPABASE_ANON_KEY).replace(/\s+/g, '')
 export let erroNuvem = ''
 function criarCliente() {

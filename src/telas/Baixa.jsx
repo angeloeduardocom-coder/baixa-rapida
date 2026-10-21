@@ -3,7 +3,7 @@ import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, 
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
-import { nuvemLigada, lerBaixasNuvem, enviarBaixaNuvem, paraApp } from '../lib/nuvem'
+import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp } from '../lib/nuvem'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
 // Busca sem acento e sem diferença de maiúscula (ex: "magnesio" acha "SULFATO DE MAGNÉSIO").
@@ -97,7 +97,7 @@ export default function Baixa() {
       setErroEnvio('')
       return true
     } catch (e) {
-      setErroEnvio([e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(' · ') || String(e))
+      setErroEnvio(`${[e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(' · ') || String(e)} — endereço: ${enderecoNuvem}`)
       setFila(f => (f.includes(k) ? f : [...f, k]))
       return false
     }
