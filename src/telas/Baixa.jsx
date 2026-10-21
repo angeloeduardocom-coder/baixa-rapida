@@ -40,6 +40,7 @@ export default function Baixa() {
   // e a fila do que ficou sem subir por falta de internet.
   const [conhecidos, setConhecidos] = useLocal('baixa:conhecidos', {})
   const [fila, setFila] = useLocal('baixa:filaNuvem', [])
+  const [erroEnvio, setErroEnvio] = useState('')
   const porDiaRef = useRef(porDia); porDiaRef.current = porDia
   const conhecidosRef = useRef(conhecidos); conhecidosRef.current = conhecidos
 
@@ -93,8 +94,10 @@ export default function Baixa() {
       setConhecidos(c => ({ ...c, [k]: [...new Set([...(c[k] || []), ...ls.map(l => l.id), ...deFora.map(l => l.id)])] }))
       setSalvos(s => (s[k] ? { ...s, [k]: { ...s[k], nuvemEm: new Date().toISOString() } } : s))
       setFila(f => f.filter(x => x !== k))
+      setErroEnvio('')
       return true
-    } catch {
+    } catch (e) {
+      setErroEnvio([e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(' · ') || String(e))
       setFila(f => (f.includes(k) ? f : [...f, k]))
       return false
     }
@@ -295,7 +298,7 @@ export default function Baixa() {
           {aviso && <p className="text-center text-sm font-semibold text-green-700">{aviso}</p>}
           {nuvemLigada && salvo && (
             fila.includes(chave)
-              ? <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700"><CloudOff size={14} /> Ainda não subiu para a nuvem — envia sozinho quando tiver internet.</p>
+              ? <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-amber-700"><CloudOff size={14} /> Ainda não subiu para a nuvem — envia sozinho quando tiver internet.{erroEnvio && <span className="block text-[11px] font-normal text-gray-500 break-all">Motivo: {erroEnvio}</span>}</p>
               : salvo.nuvemEm && <p className="flex items-center justify-center gap-1.5 text-xs font-semibold text-sky-700"><Cloud size={14} /> Na nuvem às {hora(salvo.nuvemEm)} — o sistema já vê esta baixa.</p>
           )}
           {!salvoAtual && salvo && <p className="text-center text-xs font-semibold text-amber-700">Tem alterações depois do último salvamento ({hora(salvo.salvoEm)}).</p>}
