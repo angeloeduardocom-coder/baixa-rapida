@@ -29,20 +29,22 @@ export function destravarSom() {
 export const somLigado = () => { try { return localStorage.getItem(CHAVE_SOM) !== '0' } catch { return true } }
 export function definirSom(ligado) { try { localStorage.setItem(CHAVE_SOM, ligado ? '1' : '0') } catch { /* ok */ } }
 export function tocarBipe() {
-  try { navigator.vibrate?.([200, 100, 200]) } catch { /* ok */ }
+  try { navigator.vibrate?.([300, 120, 300, 120, 300]) } catch { /* ok */ }
   if (!somLigado()) return
   try {
     destravarSom()
     if (!ctx) return
     const agora = ctx.currentTime
-    ;[0, 0.22].forEach((t, i) => {
+    // 3 bipes fortes (onda quadrada, volume máximo) — no campo o som baixo não se ouvia.
+    ;[0, 0.28, 0.56].forEach((t, i) => {
       const o = ctx.createOscillator(), g = ctx.createGain()
-      o.type = 'sine'; o.frequency.value = i ? 1046 : 880
+      o.type = 'square'; o.frequency.value = i === 1 ? 1175 : 988
       g.gain.setValueAtTime(0.0001, agora + t)
-      g.gain.exponentialRampToValueAtTime(0.35, agora + t + 0.02)
-      g.gain.exponentialRampToValueAtTime(0.0001, agora + t + 0.18)
+      g.gain.exponentialRampToValueAtTime(1, agora + t + 0.01)
+      g.gain.setValueAtTime(1, agora + t + 0.18)
+      g.gain.exponentialRampToValueAtTime(0.0001, agora + t + 0.24)
       o.connect(g).connect(ctx.destination)
-      o.start(agora + t); o.stop(agora + t + 0.2)
+      o.start(agora + t); o.stop(agora + t + 0.25)
     })
   } catch { /* ok */ }
 }
