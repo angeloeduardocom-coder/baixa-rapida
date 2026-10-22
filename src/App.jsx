@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ClipboardList, ArrowRightLeft, History, LogOut } from 'lucide-react'
 import Baixa from './telas/Baixa'
 import Transferencia from './telas/Transferencia'
@@ -7,6 +7,8 @@ import { erroNuvem } from './lib/nuvem'
 import Login from './telas/Login'
 import { perfilDe } from './lib/sessao'
 import { useLocal } from './lib/useLocal'
+import SinoAvisos from './telas/SinoAvisos'
+import { ligarAvisos } from './lib/avisosNuvem'
 
 const ABAS = [
   { id: 'baixa', rotulo: 'Baixa', Icone: ClipboardList },
@@ -19,6 +21,8 @@ export default function App() {
   const escolher = id => { setAba(id); try { localStorage.setItem('aba', id) } catch { /* ok */ } }
   const [sessao, setSessao] = useLocal('baixa:sessao', null)
   const perfil = perfilDe(sessao?.perfil)
+  // Avisos ao vivo (bipe + mensagem) do que outras pessoas mudam no campo deste perfil.
+  useEffect(() => (perfil ? ligarAvisos(perfil, sessao?.nome) : undefined), [perfil, sessao?.nome])
   if (!sessao || !perfil) return <Login onEntrar={setSessao} />
   const sair = () => { if (confirm('Sair deste perfil?')) setSessao(null) }
   return (
@@ -29,6 +33,7 @@ export default function App() {
             <h1 className="font-bold text-lg leading-tight">{aba === 'baixa' ? 'Baixa de insumos' : aba === 'historico' ? 'Histórico e relatório' : 'Transferência de insumos'}</h1>
             <p className="text-xs text-green-100 truncate">{perfil.rotulo} · {sessao.nome}</p>
           </div>
+          <SinoAvisos app="baixa" perfil={perfil.id} nome={sessao.nome} />
           <button onClick={sair} className="flex items-center gap-1 text-xs font-semibold bg-white/15 rounded-lg px-2.5 py-1.5"><LogOut size={14} /> Sair</button>
         </div>
       </header>

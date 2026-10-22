@@ -10,6 +10,8 @@ export default defineConfig({
     // Instalável na tela inicial e abre mesmo sem sinal (tudo é guardado no aparelho).
     VitePWA({
       registerType: 'autoUpdate',
+      // Notificações push (servidor → celular): eventos 'push' e clique na notificação.
+      workbox: { importScripts: ['push-sw.js'] },
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'Baixa Rápida',
