@@ -12,6 +12,16 @@ export default function SinoAvisos({ app, perfil = null, nome = null }) {
   const [som, setSom] = useState(somLigado)
   const [push, setPush] = useState('...')
   const [erro, setErro] = useState('')
+  const [teste, setTeste] = useState('')
+  // Mostra uma notificação de teste em 5 s (dá tempo de sair do app) — se não aparecer, o
+  // problema é o celular (notificação do Chrome bloqueada / não perturbe), não o servidor.
+  async function testar() {
+    setTeste('Saia do app agora — a notificação de teste aparece em 5 segundos…')
+    try {
+      const reg = await navigator.serviceWorker.ready
+      setTimeout(() => reg.showNotification('Teste de notificação', { body: 'Se você está vendo isto, as notificações funcionam neste celular.', icon: '/icon-192.png', vibrate: [200, 100, 200], tag: 'teste' }).catch(e => setTeste('Erro: ' + e.message)), 5000)
+    } catch (e) { setTeste('Erro: ' + e.message) }
+  }
   useEffect(() => {
     let t
     const novo = e => {
@@ -49,7 +59,11 @@ export default function SinoAvisos({ app, perfil = null, nome = null }) {
               <button onClick={() => setAberto(false)} aria-label="Fechar" className="p-1 text-gray-400"><X size={16} /></button>
             </div>
             <div className="px-4 py-3 border-b border-gray-100 bg-green-50 text-sm">
-              {push === 'ativo' ? <p className="text-green-800 font-semibold">✓ Notificações ativas neste celular — chegam mesmo com o app fechado.</p>
+              {push === 'ativo' ? <>
+                <p className="text-green-800 font-semibold">✓ Notificações ativas neste celular — chegam mesmo com o app fechado.</p>
+                <button onClick={testar} className="mt-2 w-full h-9 rounded-xl border border-green-600 text-green-700 font-bold text-sm">Testar notificação</button>
+                {teste && <p className="text-xs text-gray-700 mt-1">{teste}</p>}
+              </>
                 : push === 'bloqueado' ? <p className="text-red-700">Notificação bloqueada neste navegador. Libere nas configurações do site.</p>
                 : push === 'sem-suporte' ? <p className="text-amber-800">Este navegador não aceita notificação com o app fechado. No iPhone, instale o app na tela inicial.</p>
                 : <button onClick={ligarPush} className="w-full h-10 rounded-xl bg-green-600 text-white font-bold">Ativar notificações no celular</button>}
