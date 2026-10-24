@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Trash2, X, Send, Copy, Check, Camera, ImagePlus, Cloud, CloudOff } from 'lucide-react'
+import { Plus, Trash2, X, Send, Copy, Check, Camera, ImagePlus, Cloud, CloudOff, PackageSearch } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { comprimirImagem, carimbarFoto, salvarFotoLocal, lerFotosLocais } from '../lib/fotos'
@@ -50,6 +50,8 @@ function CampoFoto({ rotulo, valor, onChange }) {
     </div>
   )
 }
+
+const SISTEMA = (import.meta.env.VITE_URL_SISTEMA || 'https://robo-agr-cola.vercel.app').replace(/\/+$/, '')
 
 const CAMPOS = [['saldoAnt', '📊 Saldo ant.'], ['qtdeTransf', '📦 Qtde transf.'], ['estoque', '🏠 Estoque'], ['destino', '🏠 Destino']]
 
@@ -133,6 +135,41 @@ export default function Transferencia({ perfil, nome }) {
   const comFotos = doDia.map(t => ({ ...t, temFotoTransf: !!fotos[`${t.id}:fotoTransf`], temFotoDevolucao: false }))
   const nomes = useMemo(() => PRODUTOS.map(p => p.nome), [])
 
+  // ---------- Pedido do fechado ----------
+  // Pergunta ao sistema (página escondida) o que a programação de pulverização do dia usa e o
+  // estoque aberto não cobre, e já cria os produtos aqui com o saldo anterior e a quantidade.
+  const [pedido, setPedido] = useState({ estado: 'parado', msg: '', ultimo: null, chave: 0 })
+  const dataPedido = useRef(data); dataPedido.current = data
+  useEffect(() => {
+    const receber = e => {
+      if (e.origin !== SISTEMA || e.data?.tipo !== 'pedido-fechado' || e.data.data !== dataPedido.current) return
+      const todos = e.data.itens || []
+      if (e.data.semProgramacao) { setPedido(p => ({ ...p, estado: 'aviso', msg: 'Ainda não tem programação de pulverização nesse dia.', ultimo: null })); return }
+      incluirPedido(todos.filter(i => i.situacao === 'pedir' || i.situacao === 'falta'), todos)
+    }
+    window.addEventListener('message', receber)
+    return () => window.removeEventListener('message', receber)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  useEffect(() => {
+    if (pedido.estado !== 'buscando') return
+    const t = setTimeout(() => setPedido(p => (p.estado === 'buscando' ? { ...p, estado: 'aviso', msg: 'O sistema não respondeu. Confira a internet e tente de novo.' } : p)), 25000)
+    return () => clearTimeout(t)
+  }, [pedido.estado, pedido.chave])
+  function pedirDoFechado() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) { setPedido(p => ({ ...p, estado: 'aviso', msg: 'Sem internet: o pedido precisa do sistema.' })); return }
+    setPedido(p => ({ ...p, estado: 'buscando', msg: '', chave: p.chave + 1 }))
+  }
+  function incluirPedido(itens, todos) {
+    const ja = new Set(listaRef.current.filter(t => t.data === dataPedido.current).map(t => String(t.produto || '').trim().toUpperCase()))
+    const novos = itens.filter(i => !ja.has(String(i.produto).trim().toUpperCase()))
+    if (novos.length) {
+      setLista(l => [...l, ...novos.map(i => ({ id: uid(), data: dataPedido.current, tipo: 'pulv', autor: nome || null, produto: i.produto, saldoAnt: i.saldoAnt, qtdeTransf: i.qtdeSugerida, estoque: '', destino: '', devolucao: '' }))])
+    }
+    const msg = !itens.length ? 'Nada a pedir do fechado: o estoque aberto cobre a programação.' : novos.length ? `${novos.length} produto(s) listado(s). Confira a quantidade e preencha estoque e destino.` : 'Esses produtos já estão na lista do dia.'
+    setPedido(p => ({ ...p, estado: 'aviso', msg, ultimo: todos }))
+  }
+
   const adicionar = () => setLista(l => [...l, { id: uid(), data, tipo: perfil?.tipos?.length === 1 ? perfil.tipos[0] : null, autor: nome || null, produto: '', saldoAnt: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '' }])
   const atualizar = (id, c, v) => setLista(l => l.map(t => (t.id === id ? { ...t, [c]: v } : t)))
   function remover(id) {
@@ -190,6 +227,16 @@ export default function Transferencia({ perfil, nome }) {
           </p>
         )}
       </div>
+      {(perfil?.tipos || []).includes('pulv') && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-2">
+          <button onClick={pedirDoFechado} disabled={pedido.estado === 'buscando'} className="w-full flex items-center justify-center gap-2 bg-amber-500 active:bg-amber-600 disabled:opacity-60 text-white font-bold rounded-xl py-3"><PackageSearch size={18} /> {pedido.estado === 'buscando' ? 'Buscando a programação…' : 'Pedido do fechado'}</button>
+          {pedido.estado === 'buscando' && <iframe key={pedido.chave} title="Pedido do fechado" src={`${SISTEMA}/app-requisicao?pedido=1&embed=1&data=${data}`} style={{ display: 'none' }} />}
+          {pedido.estado === 'aviso' && <p className="text-xs text-gray-600">{pedido.msg}</p>}
+          {pedido.estado === 'aviso' && pedido.ultimo?.length > 0 && (
+            <button onClick={() => incluirPedido(pedido.ultimo, pedido.ultimo)} className="text-xs font-semibold text-amber-700 underline">Listar todos os produtos da programação</button>
+          )}
+        </div>
+      )}
       <datalist id="produtos-transf">{nomes.map(n => <option key={n} value={n} />)}</datalist>
       {erro && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{erro}</p>}
       {doDia.length === 0 && <p className="text-center text-gray-400 py-6">Nenhuma transferência neste dia.</p>}
