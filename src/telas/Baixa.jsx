@@ -5,6 +5,7 @@ import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
 import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp, meuAparelho } from '../lib/nuvem'
+import { publicarAviso, perfisDoTipo } from '../lib/avisosNuvem'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
 // Busca sem acento e sem diferença de maiúscula (ex: "magnesio" acha "SULFATO DE MAGNÉSIO").
@@ -114,6 +115,8 @@ export default function Baixa({ perfil, nome }) {
     const agora = new Date().toISOString()
     setSalvos(s => ({ ...s, [chave]: { linhas, salvoEm: agora, enviadoEm: marcarEnviado ? agora : s[chave]?.enviadoEm || null, nuvemEm: s[chave]?.nuvemEm || null } }))
     const foi = await subir(chave, linhas)
+    // Aviso pros outros só quando salva de verdade na nuvem (botão Salvar ou Enviar).
+    if (foi && linhas.length) publicarAviso({ perfis: perfisDoTipo(ferti), titulo: `Baixa salva — ${ferti === 'pulv' ? 'Pulverização' : `Ferti ${ferti}`}`, corpo: `${nome || 'Alguém'} salvou ${linhas.length} item(ns) em ${diaMes(data)}`, tag: `baixa:${ferti}:${data}`, autor: nome || null })
     if (!marcarEnviado) {
       setAviso(!nuvemLigada ? `Baixa salva neste aparelho às ${hora(agora)}`
         : foi ? `Baixa salva na nuvem às ${hora(agora)}` : 'Salva no aparelho. Vai para a nuvem quando tiver internet.')

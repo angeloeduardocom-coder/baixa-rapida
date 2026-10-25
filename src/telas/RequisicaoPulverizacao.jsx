@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { meuAparelho } from '../lib/nuvem'
 import { ClipboardList, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react'
 
 // Requisição de Pulverização do dia — a MESMA Folha que o Caldeiro vê no sistema, com as mesmas
@@ -38,7 +39,7 @@ export default function RequisicaoPulverizacao({ data, autor }) {
               <iframe
                 key={`${data}-${versao}`}
                 title="Requisição do dia"
-                src={`${SISTEMA}/app-requisicao?embed=1&data=${data}&autor=${encodeURIComponent(autor ? `${autor} (app)` : 'App Baixa Rápida')}`}
+                src={`${SISTEMA}/app-requisicao?embed=1&data=${data}&aparelho=${encodeURIComponent(meuAparelho)}&autor=${encodeURIComponent(autor ? `${autor} (app)` : 'App Baixa Rápida')}`}
                 style={{ height: altura }}
                 className="w-full block border-0"
               />

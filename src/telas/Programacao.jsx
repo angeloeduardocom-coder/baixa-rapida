@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, RefreshCw, Radio } from 'lucide-react'
 import { hojeISO, dataBR } from '../lib/useLocal'
+import { meuAparelho } from '../lib/nuvem'
 
 // Programação do dia só para ver (perfil Auxiliar): a MESMA requisição do sistema, em modo leitura.
 // Atualiza sozinha em tempo real — quando o Programador muda algo no sistema, aparece aqui.
@@ -34,7 +35,7 @@ export default function Programacao({ perfil, nome }) {
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
         {!online ? <p className="text-sm text-amber-700 bg-amber-50 px-3 py-3">Sem internet: a programação aparece quando o sinal voltar.</p> : (
           <>
-            <iframe key={`${data}-${versao}`} title="Programação do dia" src={`${SISTEMA}/app-requisicao?programacao=1&embed=1&data=${data}${podeEditar ? `&editar=1&autor=${encodeURIComponent(nome || '')}` : ''}`} style={{ height: altura }} className="w-full block border-0" />
+            <iframe key={`${data}-${versao}`} title="Programação do dia" src={`${SISTEMA}/app-requisicao?programacao=1&embed=1&data=${data}${podeEditar ? `&editar=1&autor=${encodeURIComponent(nome || '')}&aparelho=${encodeURIComponent(meuAparelho)}` : ''}`} style={{ height: altura }} className="w-full block border-0" />
             <button onClick={() => setVersao(v => v + 1)} className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-gray-500 border-t border-gray-100"><RefreshCw size={13} /> Recarregar</button>
           </>
         )}

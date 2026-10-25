@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Trash2, X, Send, Copy, Check, Camera, ImagePlus, Cloud, CloudOff, PackageSearch } from 'lucide-react'
+import { Plus, Trash2, X, Send, Copy, Check, Camera, ImagePlus, Cloud, CloudOff, PackageSearch, Save } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { comprimirImagem, carimbarFoto, salvarFotoLocal, lerFotosLocais } from '../lib/fotos'
 import { textoTransferencias, abrirWhatsapp } from '../lib/textos'
+import { publicarAviso, perfisDoTipo } from '../lib/avisosNuvem'
 import { transfVisivel } from '../lib/sessao'
 import { nuvemLigada, sincronizarTransferencias, enviarFoto, baixarFoto } from '../lib/nuvem'
 
@@ -219,8 +220,27 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
     return arqs
   }
 
+  // Salvar: sobe pra nuvem na hora e avisa os outros (só aqui e no Enviar — digitar não avisa).
+  const [salvoMsg, setSalvoMsg] = useState('')
+  async function salvarEAvisar(itens = comFotos) {
+    const validos = itens.filter(t => String(t.produto || '').trim())
+    if (!validos.length) return
+    await sincronizar()
+    const perfis = [...new Set(validos.flatMap(t => perfisDoTipo(t.tipo ?? null)))]
+    const ok = await publicarAviso({
+      perfis,
+      titulo: fluxo === 'aberto' ? 'Transferência aberto → aberto salva' : 'Transferência fechado → aberto salva',
+      corpo: `${nome || 'Alguém'}: ${validos.map(t => String(t.produto).toUpperCase()).join(', ').slice(0, 120)} · ${diaMes(data)}`,
+      tag: `transf:${fluxo}:${data}`,
+      autor: nome || null,
+    })
+    setSalvoMsg(ok ? `Salvo às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — os outros foram avisados` : 'Salvo no aparelho. Sobe e avisa quando tiver internet.')
+    setTimeout(() => setSalvoMsg(''), 4000)
+  }
+
   async function enviar(itens = comFotos) {
     if (enviando || !itens.length) return
+    salvarEAvisar(itens)
     setEnviando(true)
     const texto = textoTransferencias(data, itens)
     try {
@@ -291,6 +311,8 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
 
       {doDia.length > 0 && (
         <div className="space-y-2">
+          <button onClick={() => salvarEAvisar()} className="w-full flex items-center justify-center gap-2 bg-white border-2 border-green-600 text-green-700 active:bg-green-50 font-bold text-lg rounded-2xl py-3.5"><Save size={20} /> Salvar</button>
+          {salvoMsg && <p className="text-center text-xs font-semibold text-green-700">{salvoMsg}</p>}
           <button onClick={() => enviar()} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow"><Send size={20} /> {enviando ? 'Preparando…' : 'Enviar no WhatsApp'}</button>
           <button onClick={copiar} className="w-full flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700">{copiado ? <Check size={16} className="text-green-600" /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Copiar texto'}</button>
           <p className="text-[11px] text-gray-400 text-center">No celular as fotos vão junto, cada uma com o nome do produto escrito no topo. No computador abre só o texto.</p>
