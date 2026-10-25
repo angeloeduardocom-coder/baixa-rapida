@@ -30,15 +30,25 @@ export default function Login({ onEntrar }) {
       try { localStorage.setItem(CHAVE_SENHAS, JSON.stringify(data.dados)) } catch { /* ok */ }
     })
   }, [])
-  function entrar(e) {
+  async function entrar(e) {
     e.preventDefault()
     const p = PERFIS_APP.find(x => x.id === perfil)
     if (!nome.trim()) return setErro('Digite seu nome.')
     if (!p) return setErro('Escolha o seu campo.')
     const digitada = senha.trim()
-    const doPerfil = (senhas.app?.[p.id] || '').trim() || p.senha
-    const login = (senhas.usuarios || []).find(u => u.ativo !== false && u.sistema === 'campo' && u.perfil === p.id && u.senha && u.senha === digitada)
-    if (digitada.toLowerCase() !== doPerfil.toLowerCase() && !login) return setErro('Senha errada.')
+    const confere = cfg => {
+      const doPerfil = (cfg.app?.[p.id] || '').trim() || p.senha
+      if (digitada.toLowerCase() === doPerfil.toLowerCase()) return { ok: true }
+      const meus = (cfg.usuarios || []).filter(u => u.ativo !== false && u.sistema === 'campo' && String(u.senha || '').trim() === digitada)
+      return meus.some(u => u.perfil === p.id) ? { ok: true } : { ok: false, outro: PERFIS_APP.find(x => x.id === meus[0]?.perfil)?.rotulo }
+    }
+    let r = confere(senhas)
+    if (!r.ok && supabase) {
+      // Login criado agora há pouco: busca de novo antes de recusar.
+      const { data } = await supabase.from('config_sistema').select('dados').eq('id', 'senhas').maybeSingle()
+      if (data?.dados) { setSenhas(data.dados); try { localStorage.setItem(CHAVE_SENHAS, JSON.stringify(data.dados)) } catch { /* ok */ } r = confere(data.dados) }
+    }
+    if (!r.ok) return setErro(r.outro ? `Essa senha é de um login do perfil ${r.outro}. Escolha esse perfil.` : 'Senha errada.')
     onEntrar({ nome: nome.trim(), perfil: p.id })
   }
   const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-3 text-base bg-white outline-none'
