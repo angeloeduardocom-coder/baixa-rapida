@@ -1,6 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Check } from 'lucide-react'
 import { PERFIS_APP } from '../lib/sessao'
+import { supabase } from '../lib/nuvem'
+
+// Senhas trocadas pelo dono no sistema (Configurar permissões › Senhas e logins): config_sistema
+// id 'senhas' → app { perfil: senha } e usuarios [{ nome, sistema: 'campo', perfil, senha, ativo }].
+// Sem internet usa a última cópia deste aparelho; sem nada, a senha padrão do perfil.
+const CHAVE_SENHAS = 'campo:senhas'
+const lerSenhas = () => { try { return JSON.parse(localStorage.getItem(CHAVE_SENHAS) || 'null') || {} } catch { return {} } }
 
 const INFO = {
   ferti1: [Sprout, 'Fertirrigação 1 · baixa e transferência'],
@@ -15,12 +22,23 @@ export default function Login({ onEntrar }) {
   const [perfil, setPerfil] = useState('')
   const [senha, setSenha] = useState('')
   const [erro, setErro] = useState('')
+  const [senhas, setSenhas] = useState(lerSenhas)
+  useEffect(() => {
+    supabase?.from('config_sistema').select('dados').eq('id', 'senhas').maybeSingle().then(({ data, error }) => {
+      if (error || !data?.dados) return
+      setSenhas(data.dados)
+      try { localStorage.setItem(CHAVE_SENHAS, JSON.stringify(data.dados)) } catch { /* ok */ }
+    })
+  }, [])
   function entrar(e) {
     e.preventDefault()
     const p = PERFIS_APP.find(x => x.id === perfil)
     if (!nome.trim()) return setErro('Digite seu nome.')
     if (!p) return setErro('Escolha o seu campo.')
-    if (senha.trim().toLowerCase() !== p.senha) return setErro('Senha errada.')
+    const digitada = senha.trim()
+    const doPerfil = (senhas.app?.[p.id] || '').trim() || p.senha
+    const login = (senhas.usuarios || []).find(u => u.ativo !== false && u.sistema === 'campo' && u.perfil === p.id && u.senha && u.senha === digitada)
+    if (digitada.toLowerCase() !== doPerfil.toLowerCase() && !login) return setErro('Senha errada.')
     onEntrar({ nome: nome.trim(), perfil: p.id })
   }
   const campo = 'w-full border border-gray-300 focus:border-green-600 focus:ring-2 focus:ring-green-200 rounded-xl px-3 py-3 text-base bg-white outline-none'
