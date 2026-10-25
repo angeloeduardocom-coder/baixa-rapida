@@ -28,8 +28,8 @@ export default function Login({ onEntrar }) {
     <div className="min-h-screen bg-gradient-to-b from-green-700 to-green-900 flex items-center justify-center p-4">
       <form onSubmit={entrar} className="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-5 space-y-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-green-800">Baixa de insumos</h1>
-          <p className="text-sm text-gray-500">Entre para lançar a sua baixa</p>
+          <h1 className="text-2xl font-bold text-green-800">S.P.A Campo</h1>
+          <p className="text-sm text-gray-500">Entre com o seu nome e o seu campo</p>
         </div>
         <label className="block">
           <span className="text-xs font-semibold text-gray-500">Seu nome</span>

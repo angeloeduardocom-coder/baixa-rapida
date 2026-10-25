@@ -14,9 +14,9 @@ export default defineConfig({
       workbox: { importScripts: ['push-sw.js'] },
       includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'Baixa Rápida',
-        short_name: 'Baixa',
-        description: 'Baixa de insumos e transferências, pronta pro WhatsApp',
+        name: 'S.P.A Campo',
+        short_name: 'SPA Campo',
+        description: 'Baixa, transferência e operação em campo da fazenda',
         start_url: '/',
         display: 'standalone',
         background_color: '#ffffff',

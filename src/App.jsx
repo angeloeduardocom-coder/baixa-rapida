@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ClipboardList, ArrowRightLeft, History, LogOut } from 'lucide-react'
+import { ClipboardList, ArrowRightLeft, History, LogOut, ChevronLeft, Tractor, Sprout } from 'lucide-react'
 import Baixa from './telas/Baixa'
 import Transferencia from './telas/Transferencia'
 import Historico from './telas/Historico'
@@ -17,22 +17,47 @@ const ABAS = [
   { id: 'transf', rotulo: 'Transferência', Icone: ArrowRightLeft },
 ]
 
+function Inicio({ perfil, onEscolher }) {
+  const botoes = [
+    { id: 'baixa', Icone: ClipboardList, titulo: 'Baixa - Transferência', desc: 'Lançar a baixa de insumos, o histórico e as transferências do dia' },
+    { id: 'campo', Icone: Tractor, titulo: 'Operação em campo', desc: 'Ver a programação do dia: baldes, parcelas e produtos, ao vivo' },
+  ]
+  return (
+    <div className="pt-4 space-y-3">
+      <div className="flex items-center gap-2 text-green-800"><Sprout size={20} /><p className="font-bold">O que você vai fazer agora, {perfil.rotulo.split(' ')[0]}?</p></div>
+      {botoes.map(({ id, Icone, titulo, desc }) => (
+        <button key={id} onClick={() => onEscolher(id)} className="w-full flex items-center gap-4 bg-white border-2 border-gray-200 active:border-green-600 active:bg-green-50 rounded-3xl p-5 text-left shadow-sm">
+          <span className="w-14 h-14 rounded-2xl bg-green-600 text-white flex items-center justify-center shrink-0"><Icone size={28} /></span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-lg font-extrabold text-gray-800 leading-tight">{titulo}</span>
+            <span className="block text-sm text-gray-500 mt-0.5">{desc}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const [aba, setAba] = useState(() => { try { return localStorage.getItem('aba') || 'baixa' } catch { return 'baixa' } })
   const escolher = id => { setAba(id); try { localStorage.setItem('aba', id) } catch { /* ok */ } }
+  // Primeira tela ao abrir: escolher entre Baixa - transferência e Operação em campo.
+  const [tela, setTela] = useState('inicio')
   const [sessao, setSessao] = useLocal('baixa:sessao', null)
   const perfil = perfilDe(sessao?.perfil)
   // Avisos ao vivo (bipe + mensagem) do que outras pessoas mudam no campo deste perfil.
   useEffect(() => (perfil ? ligarAvisos(perfil, sessao?.nome) : undefined), [perfil, sessao?.nome])
   if (!sessao || !perfil) return <Login onEntrar={setSessao} />
   const soVer = !!perfil.somenteProgramacao
+  const sairParaInicio = () => setTela('inicio')
   const sair = () => { if (confirm('Sair deste perfil?')) setSessao(null) }
   return (
     <div className="min-h-screen max-w-xl mx-auto">
       <header className="sticky top-0 z-10 bg-green-700 text-white px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] shadow">
         <div className="flex items-center gap-2">
+          {tela !== 'inicio' && !soVer && <button onClick={sairParaInicio} aria-label="Voltar ao início" className="bg-white/15 rounded-lg p-1.5"><ChevronLeft size={18} /></button>}
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold text-lg leading-tight">{soVer ? 'Programação do dia' : aba === 'baixa' ? 'Baixa de insumos' : aba === 'historico' ? 'Histórico e relatório' : 'Transferência de insumos'}</h1>
+            <h1 className="font-bold text-lg leading-tight">{tela === 'inicio' ? 'S.P.A Campo' : tela === 'campo' ? 'Operação em campo' : aba === 'baixa' ? 'Baixa de insumos' : aba === 'historico' ? 'Histórico e relatório' : 'Transferência de insumos'}</h1>
             <p className="text-xs text-green-100 truncate">{perfil.rotulo} · {sessao.nome}</p>
           </div>
           <SinoAvisos app="baixa" perfil={perfil.id} nome={sessao.nome} />
@@ -41,9 +66,9 @@ export default function App() {
       </header>
       <main className="p-3 pb-[calc(6rem+env(safe-area-inset-bottom))]">
         {erroNuvem && <p className="mb-3 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{erroNuvem}</p>}
-        {soVer ? <Programacao /> : aba === 'baixa' ? <Baixa perfil={perfil} nome={sessao.nome} /> : aba === 'historico' ? <Historico perfil={perfil} nome={sessao.nome} /> : <Transferencia perfil={perfil} nome={sessao.nome} />}
+        {tela === 'inicio' && !soVer ? <Inicio perfil={perfil} onEscolher={setTela} /> : soVer || tela === 'campo' ? <Programacao /> : aba === 'baixa' ? <Baixa perfil={perfil} nome={sessao.nome} /> : aba === 'historico' ? <Historico perfil={perfil} nome={sessao.nome} /> : <Transferencia perfil={perfil} nome={sessao.nome} />}
       </main>
-      {!soVer && <nav className="fixed bottom-0 inset-x-0 z-20 bg-white border-t border-gray-200 shadow-2xl pb-[env(safe-area-inset-bottom)]">
+      {!soVer && tela === 'baixa' && <nav className="fixed bottom-0 inset-x-0 z-20 bg-white border-t border-gray-200 shadow-2xl pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-xl mx-auto grid grid-cols-3">
           {ABAS.map(({ id, rotulo, Icone }) => (
             <button key={id} onClick={() => escolher(id)} className={`flex flex-col items-center gap-0.5 py-2.5 text-sm font-bold ${aba === id ? 'text-green-700' : 'text-gray-400'}`}>

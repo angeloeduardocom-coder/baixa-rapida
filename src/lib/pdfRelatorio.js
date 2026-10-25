@@ -102,7 +102,7 @@ export async function gerarPdfRelatorio({ dia, baixas, transferencias, fotos }) 
   for (let i = 1; i <= n; i++) {
     doc.setPage(i)
     doc.setFontSize(8); doc.setTextColor(...CINZA)
-    doc.text(`Baixa Rápida · ${dataBR(dia)} · página ${i} de ${n}`, L / 2, A - 6, { align: 'center' })
+    doc.text(`S.P.A Campo · ${dataBR(dia)} · página ${i} de ${n}`, L / 2, A - 6, { align: 'center' })
   }
   return doc.output('blob')
 }
