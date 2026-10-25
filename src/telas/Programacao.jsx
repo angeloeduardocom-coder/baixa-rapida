@@ -32,7 +32,7 @@ export default function Programacao() {
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
         {!online ? <p className="text-sm text-amber-700 bg-amber-50 px-3 py-3">Sem internet: a programação aparece quando o sinal voltar.</p> : (
           <>
-            <iframe key={`${data}-${versao}`} title="Programação do dia" src={`${SISTEMA}/app-requisicao?embed=1&ver=1&data=${data}`} style={{ height: altura }} className="w-full block border-0" />
+            <iframe key={`${data}-${versao}`} title="Programação do dia" src={`${SISTEMA}/app-requisicao?programacao=1&embed=1&data=${data}`} style={{ height: altura }} className="w-full block border-0" />
             <button onClick={() => setVersao(v => v + 1)} className="w-full flex items-center justify-center gap-1.5 py-2 text-xs font-semibold text-gray-500 border-t border-gray-100"><RefreshCw size={13} /> Recarregar</button>
           </>
         )}
