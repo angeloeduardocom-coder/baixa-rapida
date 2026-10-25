@@ -37,8 +37,10 @@ export default function Login({ onEntrar }) {
     if (!p) return setErro('Escolha o seu campo.')
     const digitada = senha.trim()
     const confere = cfg => {
+      // Senha do perfil excluída pelo dono: só entra quem tem login individual.
+      const bloqueado = (cfg.bloqueados?.app || []).includes(p.id)
       const doPerfil = (cfg.app?.[p.id] || '').trim() || p.senha
-      if (digitada.toLowerCase() === doPerfil.toLowerCase()) return { ok: true }
+      if (!bloqueado && digitada.toLowerCase() === doPerfil.toLowerCase()) return { ok: true }
       const meus = (cfg.usuarios || []).filter(u => u.ativo !== false && u.sistema === 'campo' && String(u.senha || '').trim() === digitada)
       return meus.some(u => u.perfil === p.id) ? { ok: true } : { ok: false, outro: PERFIS_APP.find(x => x.id === meus[0]?.perfil)?.rotulo }
     }
