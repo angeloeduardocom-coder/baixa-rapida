@@ -20,7 +20,31 @@ export function textoBaixa(ferti, data, linhas) {
 const v = x => (x == null ? '' : String(x).trim())
 
 // Mesmo modelo da mensagem de transferência que já circula no WhatsApp.
+// Itens do fluxo 'aberto' (de um estoque aberto pra outro) saem num bloco próprio.
 export function textoTransferencias(data, itens) {
+  const abertos = itens.filter(t => t.fluxo === 'aberto')
+  const fechados = itens.filter(t => t.fluxo !== 'aberto')
+  const blocos = []
+  if (fechados.length) blocos.push(textoFechado(data, fechados))
+  if (abertos.length) blocos.push(textoAberto(data, abertos))
+  return blocos.join('\n\n')
+}
+
+function textoAberto(data, itens) {
+  const out = ['*TRANSFERÊNCIA ENTRE ESTOQUES ABERTOS*', `DATA: ${diaMes(data)}`]
+  itens.forEach(t => {
+    out.push('')
+    out.push(`➡️*${v(t.produto).toUpperCase()}:*`)
+    out.push(`📦 QTDE: ${v(t.qtdeTransf)}`)
+    out.push(`🏠 SAIU DE: ${v(t.estoque)}`)
+    out.push(`🏠 FOI PARA: ${v(t.destino)}`)
+    if (t.temFotoTransf) out.push('📷 FOTO SAÍDA: em anexo')
+    if (t.temFotoChegada) out.push('📷 FOTO CHEGADA: em anexo')
+  })
+  return out.join('\n')
+}
+
+function textoFechado(data, itens) {
   const out = ['*SALDO ANTERIOR E TRANSFERÊNCIAS DE INSUMOS*', `DATA: ${diaMes(data)}`]
   itens.forEach(t => {
     out.push('')

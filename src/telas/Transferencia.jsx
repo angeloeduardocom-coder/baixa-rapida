@@ -53,9 +53,17 @@ function CampoFoto({ rotulo, valor, onChange }) {
 
 const SISTEMA = (import.meta.env.VITE_URL_SISTEMA || 'https://robo-agr-cola.vercel.app').replace(/\/+$/, '')
 
+// Fluxo da transferência: 'fechado' (estoque fechado → aberto, o modelo de sempre, com saldo
+// anterior) ou 'aberto' (de um estoque aberto pra outro, com foto da saída e da chegada).
+// Itens antigos sem `fluxo` são do fechado.
+export const fluxoDe = t => t.fluxo || 'fechado'
+const FOTOS = { fechado: [['fotoTransf', '📷 Foto do produto transferido', 'TRANSFERÊNCIA']], aberto: [['fotoTransf', '📷 Foto na saída', 'SAÍDA'], ['fotoChegada', '📷 Foto na chegada', 'CHEGADA']] }
+const CAMPOS_ABERTO = [['qtdeTransf', '📦 Quantidade'], ['estoque', '🏠 Saiu de (estoque)'], ['destino', '🏠 Foi para']]
+
 const CAMPOS = [['saldoAnt', '📊 Saldo ant.'], ['qtdeTransf', '📦 Qtde transf.'], ['estoque', '🏠 Estoque'], ['destino', '🏠 Destino']]
 
-export default function Transferencia({ perfil, nome }) {
+export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
+  const fotosDo = t => FOTOS[fluxoDe(t)] || FOTOS.fechado
   const [lista, setLista] = useLocal('transf:lista', [])
   const [fotos, setFotos] = useState({}) // { 'id:campo': dataUrl }
   const [data, setData] = useState(hojeISO())
@@ -82,10 +90,12 @@ export default function Transferencia({ perfil, nome }) {
       const inicio = listaRef.current
       let local = inicio
       for (const t of local) {
-        const src = fotosRef.current[`${t.id}:fotoTransf`]
-        if (src && !t.fotoTransfUrl && src.startsWith('data:')) {
-          const url = await enviarFoto(t.id, src)
-          local = local.map(x => (x.id === t.id ? { ...x, fotoTransfUrl: url } : x))
+        for (const [c] of fotosDo(t)) {
+          const src = fotosRef.current[`${t.id}:${c}`]
+          if (src && !t[`${c}Url`] && src.startsWith('data:')) {
+            const url = await enviarFoto(`${t.id}-${c}`, src)
+            local = local.map(x => (x.id === t.id ? { ...x, [`${c}Url`]: url } : x))
+          }
         }
       }
       // 2) Junta com a nuvem e grava.
@@ -95,9 +105,15 @@ export default function Transferencia({ perfil, nome }) {
         if (cur === inicio) return junta
         // Mexeram durante a sincronização: mantém o que foi digitado, só põe os endereços das
         // fotos e os itens novos da nuvem (a próxima sincronização sobe o resto).
-        const urls = new Map(local.filter(x => x.fotoTransfUrl).map(x => [x.id, x.fotoTransfUrl]))
+        const porId = new Map(local.map(x => [x.id, x]))
         const ids = new Set(cur.map(x => x.id))
-        return [...cur.map(x => (urls.has(x.id) && !x.fotoTransfUrl && x.fotoTransfUrl !== null ? { ...x, fotoTransfUrl: urls.get(x.id) } : x)), ...junta.filter(x => !ids.has(x.id) && !inicio.some(i => i.id === x.id))]
+        const comUrls = x => {
+          const l = porId.get(x.id); if (!l) return x
+          let y = x
+          for (const c of ['fotoTransf', 'fotoChegada']) if (l[`${c}Url`] && !x[`${c}Url`] && x[`${c}Url`] !== null) y = { ...y, [`${c}Url`]: l[`${c}Url`] }
+          return y
+        }
+        return [...cur.map(comUrls), ...junta.filter(x => !ids.has(x.id) && !inicio.some(i => i.id === x.id))]
       })
       setEstadoNuvem('ok')
     } catch {
@@ -123,16 +139,18 @@ export default function Transferencia({ perfil, nome }) {
   // Fotos que vieram de outro celular: baixa as do dia aberto pra mostrar e mandar no WhatsApp.
   useEffect(() => {
     for (const t of lista) {
-      const k = `${t.id}:fotoTransf`
-      if (t.data === data && t.fotoTransfUrl && !fotos[k]) {
-        baixarFoto(t.fotoTransfUrl).then(src => setFotos(f => (f[k] ? f : { ...f, [k]: src }))).catch(() => {})
+      for (const [c] of fotosDo(t)) {
+        const k = `${t.id}:${c}`
+        if (t.data === data && t[`${c}Url`] && !fotos[k]) {
+          baixarFoto(t[`${c}Url`]).then(src => setFotos(f => (f[k] ? f : { ...f, [k]: src }))).catch(() => {})
+        }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, lista])
 
-  const doDia = lista.filter(t => t.data === data && transfVisivel(t, perfil))
-  const comFotos = doDia.map(t => ({ ...t, temFotoTransf: !!fotos[`${t.id}:fotoTransf`], temFotoDevolucao: false }))
+  const doDia = lista.filter(t => t.data === data && transfVisivel(t, perfil) && fluxoDe(t) === fluxo)
+  const comFotos = doDia.map(t => ({ ...t, temFotoTransf: !!fotos[`${t.id}:fotoTransf`], temFotoChegada: !!fotos[`${t.id}:fotoChegada`], temFotoDevolucao: false }))
   const nomes = useMemo(() => PRODUTOS.map(p => p.nome), [])
 
   // ---------- Pedido do fechado ----------
@@ -170,11 +188,11 @@ export default function Transferencia({ perfil, nome }) {
     setPedido(p => ({ ...p, estado: 'aviso', msg, ultimo: todos }))
   }
 
-  const adicionar = () => setLista(l => [...l, { id: uid(), data, tipo: perfil?.tipos?.length === 1 ? perfil.tipos[0] : null, autor: nome || null, produto: '', saldoAnt: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '' }])
+  const adicionar = () => setLista(l => [...l, { id: uid(), data, tipo: perfil?.tipos?.length === 1 ? perfil.tipos[0] : null, autor: nome || null, produto: '', saldoAnt: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '', fluxo }])
   const atualizar = (id, c, v) => setLista(l => l.map(t => (t.id === id ? { ...t, [c]: v } : t)))
   function remover(id) {
-    ;['fotoTransf', 'fotoDevolucao'].forEach(c => salvarFotoLocal(`${id}:${c}`, '').catch(() => {}))
-    setFotos(f => { const n = { ...f }; delete n[`${id}:fotoTransf`]; delete n[`${id}:fotoDevolucao`]; return n })
+    ;['fotoTransf', 'fotoChegada', 'fotoDevolucao'].forEach(c => salvarFotoLocal(`${id}:${c}`, '').catch(() => {}))
+    setFotos(f => { const n = { ...f }; delete n[`${id}:fotoTransf`]; delete n[`${id}:fotoChegada`]; delete n[`${id}:fotoDevolucao`]; return n })
     setLista(l => l.filter(t => t.id !== id))
     setApagados(a => (a.includes(id) ? a : [...a, id]))
   }
@@ -183,7 +201,7 @@ export default function Transferencia({ perfil, nome }) {
     setFotos(f => { const n = { ...f }; if (valor) n[chave] = valor; else delete n[chave]; return n })
     salvarFotoLocal(chave, valor).then(() => setErro('')).catch(() => setErro('Não consegui guardar a foto neste aparelho.'))
     // Foto trocada ou removida: a da nuvem deixa de valer (a nova sobe na próxima sincronização).
-    if (c === 'fotoTransf') atualizar(id, 'fotoTransfUrl', null)
+    if (c === 'fotoTransf' || c === 'fotoChegada') atualizar(id, `${c}Url`, null)
   }
 
   async function arquivosFotos(itens) {
@@ -193,7 +211,7 @@ export default function Transferencia({ perfil, nome }) {
       const nome = (t.produto || `PRODUTO ${i + 1}`).toUpperCase()
       const base = nome.replace(/[^\w-]+/g, '_')
       // Uma foto só por produto (a do produto transferido) — a da devolução saiu, era a mesma.
-      for (const [campo_, rot] of [['fotoTransf', 'TRANSFERÊNCIA']]) {
+      for (const [campo_, , rot] of fotosDo(t)) {
         const src = fotos[`${t.id}:${campo_}`]
         if (src) arqs.push(new File([await carimbarFoto(src, `${nome} — ${rot} · ${diaMes(data)}`)], `${i + 1}_${base}_${rot.toLowerCase()}.jpg`, { type: 'image/jpeg' }))
       }
@@ -218,7 +236,7 @@ export default function Transferencia({ perfil, nome }) {
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-2xl border border-gray-200 p-3">
-        <p className="text-sm font-bold text-gray-700 mb-2">Saldo anterior e transferências</p>
+        <p className="text-sm font-bold text-gray-700 mb-2">{fluxo === 'aberto' ? 'Transferência de aberto para aberto' : 'Fechado → aberto · saldo anterior e transferências'}</p>
         <input type="date" value={data} onChange={e => e.target.value && setData(e.target.value)} className={`${campo} font-semibold text-green-700`} />
         {nuvemLigada && (
           <p className={`mt-2 flex items-center gap-1.5 text-xs font-semibold ${estadoNuvem === 'ok' ? 'text-sky-700' : estadoNuvem === 'pendente' ? 'text-amber-700' : 'text-gray-400'}`}>
@@ -227,7 +245,7 @@ export default function Transferencia({ perfil, nome }) {
           </p>
         )}
       </div>
-      {(perfil?.tipos || []).includes('pulv') && (
+      {fluxo === 'fechado' && (perfil?.tipos || []).includes('pulv') && (
         <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-2">
           <button onClick={pedirDoFechado} disabled={pedido.estado === 'buscando'} className="w-full flex items-center justify-center gap-2 bg-amber-500 active:bg-amber-600 disabled:opacity-60 text-white font-bold rounded-xl py-3"><PackageSearch size={18} /> {pedido.estado === 'buscando' ? 'Buscando a programação…' : 'Pedido do fechado'}</button>
           {pedido.estado === 'buscando' && <iframe key={pedido.chave} title="Pedido do fechado" src={`${SISTEMA}/app-requisicao?pedido=1&embed=1&data=${data}`} style={{ display: 'none' }} />}
@@ -249,18 +267,20 @@ export default function Transferencia({ perfil, nome }) {
             <button onClick={() => remover(t.id)} aria-label="Remover" className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {CAMPOS.map(([c, rot]) => (
+            {(fluxo === 'aberto' ? CAMPOS_ABERTO : CAMPOS).map(([c, rot]) => (
               <label key={c} className="block">
                 <span className="text-xs font-semibold text-gray-500">{rot}</span>
                 <input value={t[c]} onChange={e => atualizar(t.id, c, e.target.value)} className={campo} />
               </label>
             ))}
           </div>
-          <CampoFoto rotulo="📷 Foto do produto transferido" valor={fotos[`${t.id}:fotoTransf`]} onChange={v => setFoto(t.id, 'fotoTransf', v)} />
+          {fotosDo(t).map(([c, rot]) => <CampoFoto key={c} rotulo={rot} valor={fotos[`${t.id}:${c}`]} onChange={v => setFoto(t.id, c, v)} />)}
+          {fluxo === 'fechado' && (
           <label className="block">
             <span className="text-xs font-semibold text-gray-500">Devolução (opcional)</span>
             <input value={t.devolucao} onChange={e => atualizar(t.id, 'devolucao', e.target.value)} placeholder="ex.: 2,9 kg C. Calda 02" className={campo} />
           </label>
+          )}
           {doDia.length > 1 && (
             <button onClick={() => enviar([comFotos.find(x => x.id === t.id)])} disabled={enviando} className="w-full flex items-center justify-center gap-1.5 border-2 border-green-600 text-green-700 rounded-xl py-2.5 text-sm font-bold"><Send size={15} /> Enviar só este produto</button>
           )}
