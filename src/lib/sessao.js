@@ -4,6 +4,7 @@ export const PERFIS_APP = [
   { id: 'ferti1', rotulo: 'Ferti 1', tipos: [1], senha: 'ferti1' },
   { id: 'ferti2', rotulo: 'Ferti 2', tipos: [2], senha: 'ferti2' },
   { id: 'pulv', rotulo: 'Pulverização', tipos: ['pulv'], senha: 'pulv123' },
+  { id: 'aux', rotulo: 'Auxiliar', tipos: [], senha: 'aux123', somenteProgramacao: true },
   { id: 'gestor', rotulo: 'Gestor (vê tudo)', tipos: [1, 2, 'pulv'], senha: 'gestor123' },
 ]
 export const perfilDe = id => PERFIS_APP.find(p => p.id === id) || null

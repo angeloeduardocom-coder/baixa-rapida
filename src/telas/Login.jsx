@@ -1,6 +1,14 @@
 import { useState } from 'react'
-import { LogIn } from 'lucide-react'
+import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Check } from 'lucide-react'
 import { PERFIS_APP } from '../lib/sessao'
+
+const INFO = {
+  ferti1: [Sprout, 'Fertirrigação 1 · baixa e transferência'],
+  ferti2: [Droplets, 'Fertirrigação 2 · baixa e transferência'],
+  pulv: [SprayCan, 'Pulverização · baixa, transferência e pedido'],
+  aux: [Eye, 'Ver a programação do dia ao vivo'],
+  gestor: [ShieldCheck, 'Vê e edita tudo'],
+}
 
 export default function Login({ onEntrar }) {
   const [nome, setNome] = useState('')
@@ -29,13 +37,22 @@ export default function Login({ onEntrar }) {
         </label>
         <div>
           <span className="text-xs font-semibold text-gray-500">Seu campo</span>
-          <div className="grid grid-cols-2 gap-2 mt-1">
-            {PERFIS_APP.map(p => (
-              <button type="button" key={p.id} onClick={() => setPerfil(p.id)}
-                className={`py-3 px-2 rounded-xl font-bold text-sm border-2 ${perfil === p.id ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-200 text-gray-600'} ${p.id === 'gestor' || p.id === 'pulv' ? 'col-span-2' : ''}`}>
-                {p.rotulo}
-              </button>
-            ))}
+          <div className="mt-1 rounded-2xl border border-gray-200 overflow-hidden divide-y divide-gray-100" role="radiogroup" aria-label="Seu campo">
+            {PERFIS_APP.map(p => {
+              const [Icone, desc] = INFO[p.id] || [Sprout, '']
+              const on = perfil === p.id
+              return (
+                <button type="button" key={p.id} role="radio" aria-checked={on} onClick={() => { setPerfil(p.id); setErro('') }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-3 text-left transition-colors ${on ? 'bg-green-50' : 'bg-white active:bg-gray-50'}`}>
+                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${on ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'}`}><Icone size={20} /></span>
+                  <span className="flex-1 min-w-0">
+                    <span className={`block font-bold leading-tight ${on ? 'text-green-800' : 'text-gray-800'}`}>{p.rotulo}</span>
+                    <span className="block text-xs text-gray-500 truncate">{desc}</span>
+                  </span>
+                  <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${on ? 'border-green-600 bg-green-600' : 'border-gray-300'}`}>{on && <Check size={12} className="text-white" strokeWidth={3} />}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
         <label className="block">
