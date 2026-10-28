@@ -61,7 +61,9 @@ export const fluxoDe = t => t.fluxo || 'fechado'
 const FOTOS = { fechado: [['fotoTransf', '📷 Foto do produto transferido', 'TRANSFERÊNCIA']], aberto: [['fotoTransf', '📷 Foto na saída', 'SAÍDA'], ['fotoChegada', '📷 Foto na chegada', 'CHEGADA']] }
 const CAMPOS_ABERTO = [['qtdeTransf', '📦 Quantidade'], ['estoque', '🏠 Saiu de (estoque)'], ['destino', '🏠 Foi para']]
 
-const CAMPOS = [['saldoAnt', '📊 Saldo ant.'], ['qtdeTransf', '📦 Qtde transf.'], ['estoque', '🏠 Estoque'], ['destino', '🏠 Destino']]
+// Qtde programada = o que a programação do dia pede (vem do Pedido do fechado). Qtde transf. = o que o
+// pessoal do estoque realmente passou — eles preenchem (28/10/2026).
+const CAMPOS = [['saldoAnt', '📊 Saldo ant.'], ['qtdeProgramada', '📋 Qtde programada'], ['qtdeTransf', '📦 Qtde transf. (estoque)'], ['estoque', '🏠 Estoque'], ['destino', '🏠 Destino']]
 
 export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
   const fotosDo = t => FOTOS[fluxoDe(t)] || FOTOS.fechado
@@ -183,13 +185,13 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
     const ja = new Set(listaRef.current.filter(t => t.data === dataPedido.current).map(t => String(t.produto || '').trim().toUpperCase()))
     const novos = itens.filter(i => !ja.has(String(i.produto).trim().toUpperCase()))
     if (novos.length) {
-      setLista(l => [...l, ...novos.map(i => ({ id: uid(), data: dataPedido.current, tipo: 'pulv', autor: nome || null, produto: i.produto, saldoAnt: i.saldoAnt, qtdeTransf: i.qtdeSugerida, estoque: '', destino: '', devolucao: '' }))])
+      setLista(l => [...l, ...novos.map(i => ({ id: uid(), data: dataPedido.current, tipo: 'pulv', autor: nome || null, produto: i.produto, saldoAnt: i.saldoAnt, qtdeProgramada: i.qtdeSugerida, qtdeTransf: '', estoque: '', destino: '', devolucao: '' }))])
     }
     const msg = !itens.length ? 'Nada a pedir do fechado: o estoque aberto cobre a programação.' : novos.length ? `${novos.length} produto(s) listado(s). Confira a quantidade e preencha estoque e destino.` : 'Esses produtos já estão na lista do dia.'
     setPedido(p => ({ ...p, estado: 'aviso', msg, ultimo: todos }))
   }
 
-  const adicionar = () => setLista(l => [...l, { id: uid(), data, tipo: perfil?.tipos?.length === 1 ? perfil.tipos[0] : null, autor: nome || null, produto: '', saldoAnt: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '', fluxo }])
+  const adicionar = () => setLista(l => [...l, { id: uid(), data, tipo: perfil?.tipos?.length === 1 ? perfil.tipos[0] : null, autor: nome || null, produto: '', saldoAnt: '', qtdeProgramada: '', qtdeTransf: '', estoque: '', destino: '', devolucao: '', fluxo }])
   const atualizar = (id, c, v) => setLista(l => l.map(t => (t.id === id ? { ...t, [c]: v } : t)))
   function remover(id) {
     ;['fotoTransf', 'fotoChegada', 'fotoDevolucao'].forEach(c => salvarFotoLocal(`${id}:${c}`, '').catch(() => {}))
@@ -298,7 +300,7 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
             {(fluxo === 'aberto' ? CAMPOS_ABERTO : CAMPOS).map(([c, rot]) => (
               <label key={c} className="block">
                 <span className="text-xs font-semibold text-gray-500">{rot}</span>
-                <input value={t[c]} onChange={e => atualizar(t.id, c, e.target.value)} className={campo} />
+                <input value={t[c] ?? ''} onChange={e => atualizar(t.id, c, e.target.value)} placeholder={fluxo !== 'aberto' && c === 'qtdeTransf' ? 'Estoque preenche' : undefined} className={`${campo}${fluxo !== 'aberto' && c === 'qtdeTransf' ? ' border-amber-300 bg-amber-50/60' : ''}`} />
               </label>
             ))}
           </div>

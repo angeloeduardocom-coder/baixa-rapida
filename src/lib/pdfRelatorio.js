@@ -86,6 +86,7 @@ export async function gerarPdfRelatorio({ dia, baixas, transferencias, fotos }) 
     doc.text(`Estoque: ${t.estoque || '—'}`, M + 3, y + 17)
     doc.text(`Destino: ${t.destino || '—'}`, M + largura / 2, y + 17)
     y += 19
+    if (t.qtdeProgramada) { doc.text(`Qtde programada: ${t.qtdeProgramada}`, M + 3, y + 3); y += 5 }
     if (t.devolucao) { doc.text(`Devolução: ${t.devolucao}`, M + 3, y + 3); y += 5 }
     if (dim) {
       doc.addImage(src, 'JPEG', M + (largura - fw) / 2, y + 2, fw, fh, undefined, 'NONE')

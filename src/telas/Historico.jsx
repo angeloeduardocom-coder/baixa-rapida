@@ -40,7 +40,7 @@ export default function Historico({ perfil, nome }) {
   const tipoOk = t => tiposPerfil.includes(t === 'pulv' ? 'pulv' : Number(t))
   const [porDia, setPorDia] = useState(() => ler('baixa:porDia', {}))
   // Transferência adicionada e deixada em branco (sem produto e sem nenhum campo) não entra.
-  const preenchida = t => ['produto', 'saldoAnt', 'qtdeTransf', 'estoque', 'destino', 'devolucao'].some(c => String(t[c] ?? '').trim())
+  const preenchida = t => ['produto', 'saldoAnt', 'qtdeProgramada', 'qtdeTransf', 'estoque', 'destino', 'devolucao'].some(c => String(t[c] ?? '').trim())
   const [transfs, setTransfs] = useState(() => ler('transf:lista', []).filter(preenchida))
 
   // Com a nuvem ligada, o relatório mostra também o que foi lançado em outros celulares (e na
@@ -227,6 +227,7 @@ export default function Historico({ perfil, nome }) {
                     <p className="font-bold text-gray-800">🧪 {(t.produto || '—').toUpperCase()}</p>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
                       <span className="text-gray-500">📊 Saldo ant.: <b className="text-gray-800">{t.saldoAnt || '—'}</b></span>
+                      {t.qtdeProgramada && <span className="text-gray-500">📋 Qtde programada: <b className="text-gray-800">{t.qtdeProgramada}</b></span>}
                       <span className="text-gray-500">📦 Qtde transf.: <b className="text-gray-800">{t.qtdeTransf || '—'}</b></span>
                       <span className="text-gray-500">🏠 Estoque: <b className="text-gray-800">{t.estoque || '—'}</b></span>
                       <span className="text-gray-500">🏠 Destino: <b className="text-gray-800">{t.destino || '—'}</b></span>

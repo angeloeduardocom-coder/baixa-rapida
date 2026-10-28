@@ -50,6 +50,7 @@ function textoFechado(data, itens) {
     out.push('')
     out.push(`🧪*${v(t.produto).toUpperCase()}:*`)
     out.push(`📊SALDO ANT.: ${v(t.saldoAnt)}`)
+    if (v(t.qtdeProgramada)) out.push(`📋 QTDE PROGRAMADA: ${v(t.qtdeProgramada)}`)
     out.push(`📦 QTDE TRANSF: ${v(t.qtdeTransf)}`)
     if (t.temFotoTransf) out.push('📷 FOTO TRANSF.: em anexo')
     out.push(`🏠 ESTOQUE: ${v(t.estoque)}`)
