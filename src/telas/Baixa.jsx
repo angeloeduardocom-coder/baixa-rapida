@@ -5,7 +5,7 @@ import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
 import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp, meuAparelho } from '../lib/nuvem'
-import { publicarAviso, perfisDoTipo } from '../lib/avisosNuvem'
+import { publicarAviso, perfisDoTipo, mudouDesdeUltimoAviso, lembrarAviso } from '../lib/avisosNuvem'
 import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/textos'
 
 // Busca sem acento e sem diferença de maiúscula (ex: "magnesio" acha "SULFATO DE MAGNÉSIO").
@@ -116,7 +116,12 @@ export default function Baixa({ perfil, nome }) {
     setSalvos(s => ({ ...s, [chave]: { linhas, salvoEm: agora, enviadoEm: marcarEnviado ? agora : s[chave]?.enviadoEm || null, nuvemEm: s[chave]?.nuvemEm || null } }))
     const foi = await subir(chave, linhas)
     // Aviso pros outros só quando salva de verdade na nuvem (botão Salvar ou Enviar).
-    if (foi && linhas.length) publicarAviso({ perfis: perfisDoTipo(ferti), titulo: `Baixa salva — ${ferti === 'pulv' ? 'Pulverização' : `Ferti ${ferti}`}`, corpo: `${nome || 'Alguém'} salvou ${linhas.length} item(ns) em ${diaMes(data)}`, tag: `baixa:${ferti}:${data}`, autor: nome || null })
+    // …e só se a baixa mudou desde o último aviso (salvar igual de novo não notifica).
+    const tagAviso = `baixa:${ferti}:${data}`
+    if (foi && linhas.length && mudouDesdeUltimoAviso(tagAviso, linhas)) {
+      publicarAviso({ perfis: perfisDoTipo(ferti), titulo: `Baixa salva — ${ferti === 'pulv' ? 'Pulverização' : `Ferti ${ferti}`}`, corpo: `${nome || 'Alguém'} salvou ${linhas.length} item(ns) em ${diaMes(data)}`, tag: tagAviso, autor: nome || null })
+        .then(ok => ok && lembrarAviso(tagAviso, linhas))
+    }
     if (!marcarEnviado) {
       setAviso(!nuvemLigada ? `Baixa salva neste aparelho às ${hora(agora)}`
         : foi ? `Baixa salva na nuvem às ${hora(agora)}` : 'Salva no aparelho. Vai para a nuvem quando tiver internet.')

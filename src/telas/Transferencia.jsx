@@ -4,7 +4,7 @@ import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { comprimirImagem, carimbarFoto, salvarFotoLocal, lerFotosLocais } from '../lib/fotos'
 import { textoTransferencias, abrirWhatsapp } from '../lib/textos'
-import { publicarAviso, perfisDoTipo } from '../lib/avisosNuvem'
+import { publicarAviso, perfisDoTipo, mudouDesdeUltimoAviso, lembrarAviso } from '../lib/avisosNuvem'
 import { transfVisivel } from '../lib/sessao'
 import { nuvemLigada, sincronizarTransferencias, enviarFoto, baixarFoto } from '../lib/nuvem'
 
@@ -227,13 +227,21 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
     if (!validos.length) return
     await sincronizar()
     const perfis = [...new Set(validos.flatMap(t => perfisDoTipo(t.tipo ?? null)))]
+    const tagAviso = `transf:${fluxo}:${data}`
+    // Nada mudou desde o último aviso: salva, mas não notifica ninguém.
+    if (!mudouDesdeUltimoAviso(tagAviso, validos)) {
+      setSalvoMsg(`Salvo às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — sem mudança, ninguém foi avisado`)
+      setTimeout(() => setSalvoMsg(''), 4000)
+      return
+    }
     const ok = await publicarAviso({
       perfis,
       titulo: fluxo === 'aberto' ? 'Transferência aberto → aberto salva' : 'Transferência fechado → aberto salva',
       corpo: `${nome || 'Alguém'}: ${validos.map(t => String(t.produto).toUpperCase()).join(', ').slice(0, 120)} · ${diaMes(data)}`,
-      tag: `transf:${fluxo}:${data}`,
+      tag: tagAviso,
       autor: nome || null,
     })
+    if (ok) lembrarAviso(tagAviso, validos)
     setSalvoMsg(ok ? `Salvo às ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — os outros foram avisados` : 'Salvo no aparelho. Sobe e avisa quando tiver internet.')
     setTimeout(() => setSalvoMsg(''), 4000)
   }

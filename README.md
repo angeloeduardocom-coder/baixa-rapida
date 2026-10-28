@@ -16,3 +16,4 @@ Rodar: `npm install && npm run dev` · Build: `npm run build`
 - **Programação por método** (28/10/2026): o aplicador vê só os baldes do método dele (o app manda `&metodo=` para a programação do SPA).
 - **Área do caldeiro** (28/10/2026): o perfil Pulverização (`pulv`) aparece com esse nome no login e no topo do app (pedidos, requisições e baixas). Senha e permissões iguais.
 - O botão **Operação em campo** passou a se chamar **Programação do dia** (28/10/2026).
+- **Aviso só com mudança de verdade** (28/10/2026): Baixa e Transferências só notificam se o conteúdo mudou desde o último aviso daquele assunto (`mudouDesdeUltimoAviso`/`lembrarAviso` em `avisosNuvem.js`). Salvar igual de novo não avisa ninguém.
