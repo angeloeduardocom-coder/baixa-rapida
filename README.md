@@ -15,3 +15,4 @@ Rodar: `npm install && npm run dev` · Build: `npm run build`
 - **Aplicadores por método** (28/10/2026): dentro de Aplicações entram Tratorizado, Drone, Costal, Esquicho, Lança e Polvilhado (perfis `apl_*` em `PERFIS_APP`, senhas padrão `tratorizado123`, `drone123`...). Por enquanto veem só a programação do dia; cada um será estruturado depois. Os perfis também estão em Senhas e logins do SPA.
 - **Programação por método** (28/10/2026): o aplicador vê só os baldes do método dele (o app manda `&metodo=` para a programação do SPA).
 - **Área do caldeiro** (28/10/2026): o perfil Pulverização (`pulv`) aparece com esse nome no login e no topo do app (pedidos, requisições e baixas). Senha e permissões iguais.
+- O botão **Operação em campo** passou a se chamar **Programação do dia** (28/10/2026).

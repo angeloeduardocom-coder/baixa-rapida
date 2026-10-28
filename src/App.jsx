@@ -21,7 +21,7 @@ const TELAS = {
   baixa: { titulo: 'Baixas', desc: 'Lançar a baixa de insumos do dia e ver o histórico e relatório', Icone: ClipboardList, cor: 'bg-green-600' },
   fechado: { titulo: 'Transferência fechado → aberto', desc: 'Pedido do estoque fechado com saldo anterior, quantidade e foto', Icone: PackageOpen, cor: 'bg-amber-500' },
   aberto: { titulo: 'Transferência aberto → aberto', desc: 'Passar produto de um estoque aberto para outro, com foto da saída e da chegada', Icone: ArrowRightLeft, cor: 'bg-sky-600' },
-  campo: { titulo: 'Operação em campo', desc: 'Programação do dia: baldes, parcelas e produtos, ao vivo', Icone: Tractor, cor: 'bg-blue-700' },
+  campo: { titulo: 'Programação do dia', desc: 'Baldes, parcelas e produtos do dia, ao vivo', Icone: Tractor, cor: 'bg-blue-700' },
 }
 
 function Inicio({ nome, onEscolher }) {
@@ -44,7 +44,7 @@ function Inicio({ nome, onEscolher }) {
 export default function App() {
   const [aba, setAba] = useState(() => { try { return localStorage.getItem('aba') === 'historico' ? 'historico' : 'baixa' } catch { return 'baixa' } })
   const escolher = id => { setAba(id); try { localStorage.setItem('aba', id) } catch { /* ok */ } }
-  // Primeira tela ao abrir: o menu (Baixas, as duas transferências e Operação em campo).
+  // Primeira tela ao abrir: o menu (Baixas, as duas transferências e Programação do dia).
   const [tela, setTela] = useState('inicio')
   const [sessao, setSessao] = useLocal('baixa:sessao', null)
   const perfil = perfilDe(sessao?.perfil)
@@ -60,7 +60,7 @@ export default function App() {
         <div className="flex items-center gap-2">
           {tela !== 'inicio' && !soVer && <button onClick={sairParaInicio} aria-label="Voltar ao início" className="bg-white/15 rounded-lg p-1.5"><ChevronLeft size={18} /></button>}
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold text-lg leading-tight">{perfil.metodo ? `Aplicação · ${perfil.metodo}` : soVer ? 'Operação em campo' : tela === 'inicio' ? 'S.P.A Campo' : tela === 'baixa' ? (aba === 'historico' ? 'Histórico e relatório' : 'Baixa de insumos') : TELAS[tela]?.titulo}</h1>
+            <h1 className="font-bold text-lg leading-tight">{perfil.metodo ? `Aplicação · ${perfil.metodo}` : soVer ? 'Programação do dia' : tela === 'inicio' ? 'S.P.A Campo' : tela === 'baixa' ? (aba === 'historico' ? 'Histórico e relatório' : 'Baixa de insumos') : TELAS[tela]?.titulo}</h1>
             <p className="text-xs text-green-100 truncate">{perfil.rotulo} · {sessao.nome}</p>
           </div>
           <SinoAvisos app="baixa" perfil={perfil.id} nome={sessao.nome} />
