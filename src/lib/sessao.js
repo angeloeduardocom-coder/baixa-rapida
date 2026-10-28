@@ -3,7 +3,7 @@
 export const PERFIS_APP = [
   { id: 'ferti1', rotulo: 'Ferti 1', tipos: [1], senha: 'ferti1' },
   { id: 'ferti2', rotulo: 'Ferti 2', tipos: [2], senha: 'ferti2' },
-  { id: 'pulv', rotulo: 'Pulverização', tipos: ['pulv'], senha: 'pulv123' },
+  { id: 'pulv', rotulo: 'Área do caldeiro', tipos: ['pulv'], senha: 'pulv123' },
   { id: 'aux', rotulo: 'Auxiliar de campo', tipos: [], senha: 'aux123', somenteProgramacao: true },
   // Aplicadores por método (28/10/2026): por enquanto só veem a programação do dia; cada um será
   // estruturado depois, com os detalhes do método.
@@ -20,7 +20,7 @@ export const PERFIS_APP = [
 export const GRUPOS_APP = [
   { id: 'gestor', rotulo: 'Gestor', desc: 'Vê e edita tudo', perfis: ['gestor'] },
   { id: 'aux', rotulo: 'Auxiliar de campo', desc: 'Programação do dia ao vivo', perfis: ['aux'] },
-  { id: 'aplicacoes', rotulo: 'Aplicações', desc: 'Ferti 1, Ferti 2, Pulverização e aplicadores', perfis: ['ferti1', 'ferti2', 'pulv', 'apl_tratorizado', 'apl_drone', 'apl_costal', 'apl_esquicho', 'apl_lanca', 'apl_polvilhado'] },
+  { id: 'aplicacoes', rotulo: 'Aplicações', desc: 'Ferti 1, Ferti 2, Área do caldeiro e aplicadores', perfis: ['ferti1', 'ferti2', 'pulv', 'apl_tratorizado', 'apl_drone', 'apl_costal', 'apl_esquicho', 'apl_lanca', 'apl_polvilhado'] },
 ]
 export const perfilDe = id => PERFIS_APP.find(p => p.id === id) || null
 // Transferência sem tipo (feita antes do login existir, ou na tela de Transferência da Adubação

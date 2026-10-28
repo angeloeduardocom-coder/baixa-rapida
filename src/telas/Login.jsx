@@ -12,7 +12,7 @@ const lerSenhas = () => { try { return JSON.parse(localStorage.getItem(CHAVE_SEN
 const INFO = {
   ferti1: [Sprout, 'Fertirrigação 1 · baixa e transferência'],
   ferti2: [Droplets, 'Fertirrigação 2 · baixa e transferência'],
-  pulv: [SprayCan, 'Pulverização · baixa, transferência e pedido'],
+  pulv: [SprayCan, 'Pulverização · pedidos, requisições e baixas'],
   aux: [Eye, 'Ver a programação do dia ao vivo'],
   gestor: [ShieldCheck, 'Vê e edita tudo'],
   apl_tratorizado: [Tractor, 'Aplicação com trator'],
