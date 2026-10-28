@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Tractor, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Tractor, Plane, Backpack, Droplet, Crosshair, Wind, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PERFIS_APP, GRUPOS_APP } from '../lib/sessao'
 import { supabase } from '../lib/nuvem'
 
@@ -15,6 +15,12 @@ const INFO = {
   pulv: [SprayCan, 'Pulverização · baixa, transferência e pedido'],
   aux: [Eye, 'Ver a programação do dia ao vivo'],
   gestor: [ShieldCheck, 'Vê e edita tudo'],
+  apl_tratorizado: [Tractor, 'Aplicação com trator'],
+  apl_drone: [Plane, 'Aplicação com drone'],
+  apl_costal: [Backpack, 'Aplicação com pulverizador costal'],
+  apl_esquicho: [Droplet, 'Aplicação com esquicho'],
+  apl_lanca: [Crosshair, 'Aplicação com lança'],
+  apl_polvilhado: [Wind, 'Aplicação polvilhada'],
 }
 
 export default function Login({ onEntrar }) {
@@ -97,7 +103,16 @@ export default function Login({ onEntrar }) {
           <div><h1 className="text-xl font-bold text-green-800 leading-tight">{g.rotulo}</h1><p className="text-sm text-gray-500">Escolha o seu campo</p></div>
         </div>
         <div className="rounded-2xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
-          {g.perfis.map(id => { const [Icone, desc] = INFO[id] || [Sprout, '']; return <Linha key={id} Icone={Icone} titulo={PERFIS_APP.find(x => x.id === id)?.rotulo} desc={desc} onClick={() => { setPerfil(id); setErro('') }} /> })}
+          {g.perfis.map((id, i) => {
+            const [Icone, desc] = INFO[id] || [Sprout, '']
+            const abreAplicadores = id.startsWith('apl_') && !g.perfis[i - 1]?.startsWith('apl_')
+            return (
+              <div key={id}>
+                {abreAplicadores && <p className="px-3.5 py-1.5 bg-gray-50 text-[11px] font-bold tracking-wide text-gray-500 uppercase">Aplicadores por método</p>}
+                <Linha Icone={Icone} titulo={PERFIS_APP.find(x => x.id === id)?.rotulo} desc={desc} onClick={() => { setPerfil(id); setErro('') }} />
+              </div>
+            )
+          })}
         </div>
         {direitos}
       </div>

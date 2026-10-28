@@ -60,7 +60,7 @@ export default function App() {
         <div className="flex items-center gap-2">
           {tela !== 'inicio' && !soVer && <button onClick={sairParaInicio} aria-label="Voltar ao início" className="bg-white/15 rounded-lg p-1.5"><ChevronLeft size={18} /></button>}
           <div className="flex-1 min-w-0">
-            <h1 className="font-bold text-lg leading-tight">{soVer ? 'Operação em campo' : tela === 'inicio' ? 'S.P.A Campo' : tela === 'baixa' ? (aba === 'historico' ? 'Histórico e relatório' : 'Baixa de insumos') : TELAS[tela]?.titulo}</h1>
+            <h1 className="font-bold text-lg leading-tight">{perfil.metodo ? `Aplicação · ${perfil.metodo}` : soVer ? 'Operação em campo' : tela === 'inicio' ? 'S.P.A Campo' : tela === 'baixa' ? (aba === 'historico' ? 'Histórico e relatório' : 'Baixa de insumos') : TELAS[tela]?.titulo}</h1>
             <p className="text-xs text-green-100 truncate">{perfil.rotulo} · {sessao.nome}</p>
           </div>
           <SinoAvisos app="baixa" perfil={perfil.id} nome={sessao.nome} />
