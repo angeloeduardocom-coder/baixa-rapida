@@ -13,3 +13,4 @@ Rodar: `npm install && npm run dev` · Build: `npm run build`
 - O login agora começa com 3 entradas: **Gestor**, **Auxiliar de campo** e **Aplicações**. Aplicações abre a lista dos campos (Ferti 1, Ferti 2, Pulverização); depois vem nome e senha.
 - Perfis e senhas não mudaram (`PERFIS_APP`, senhas do SPA e logins individuais). Os grupos ficam em `GRUPOS_APP` (`src/lib/sessao.js`); os aplicadores por método entram na lista de Aplicações quando cada um for montado.
 - **Aplicadores por método** (28/10/2026): dentro de Aplicações entram Tratorizado, Drone, Costal, Esquicho, Lança e Polvilhado (perfis `apl_*` em `PERFIS_APP`, senhas padrão `tratorizado123`, `drone123`...). Por enquanto veem só a programação do dia; cada um será estruturado depois. Os perfis também estão em Senhas e logins do SPA.
+- **Programação por método** (28/10/2026): o aplicador vê só os baldes do método dele (o app manda `&metodo=` para a programação do SPA).
