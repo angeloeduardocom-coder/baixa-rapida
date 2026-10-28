@@ -8,3 +8,7 @@ App leve (PWA) para preencher a **baixa de insumos** e as **transferências** no
 - Lista de produtos: `src/data/produtos.js` (dá pra criar produto novo direto na tela).
 
 Rodar: `npm install && npm run dev` · Build: `npm run build`
+
+## Tela inicial por função (28/10/2026)
+- O login agora começa com 3 entradas: **Gestor**, **Auxiliar de campo** e **Aplicações**. Aplicações abre a lista dos campos (Ferti 1, Ferti 2, Pulverização); depois vem nome e senha.
+- Perfis e senhas não mudaram (`PERFIS_APP`, senhas do SPA e logins individuais). Os grupos ficam em `GRUPOS_APP` (`src/lib/sessao.js`); os aplicadores por método entram na lista de Aplicações quando cada um for montado.
