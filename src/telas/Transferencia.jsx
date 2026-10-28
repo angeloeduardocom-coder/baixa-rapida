@@ -184,10 +184,25 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
   function incluirPedido(itens, todos) {
     const ja = new Set(listaRef.current.filter(t => t.data === dataPedido.current).map(t => String(t.produto || '').trim().toUpperCase()))
     const novos = itens.filter(i => !ja.has(String(i.produto).trim().toUpperCase()))
-    if (novos.length) {
-      setLista(l => [...l, ...novos.map(i => ({ id: uid(), data: dataPedido.current, tipo: 'pulv', autor: nome || null, produto: i.produto, saldoAnt: i.saldoAnt, qtdeProgramada: i.qtdeSugerida, qtdeTransf: '', estoque: '', destino: '', devolucao: '' }))])
-    }
-    const msg = !itens.length ? 'Nada a pedir do fechado: o estoque aberto cobre a programação.' : novos.length ? `${novos.length} produto(s) listado(s). Confira a quantidade e preencha estoque e destino.` : 'Esses produtos já estão na lista do dia.'
+    // Produto que já está na lista do dia: atualiza a Qtde programada com a programação de agora.
+    // Item antigo (antes de 28/10 o número da programação ia em Qtde transf.): passa o número pro
+    // campo certo e deixa Qtde transf. vazia pro estoque — só se ela ainda é igual à sugestão.
+    const porNome = new Map(itens.map(i => [String(i.produto).trim().toUpperCase(), i]))
+    let atualizados = 0
+    setLista(l => {
+      const mexidos = l.map(t => {
+        const i = t.data === dataPedido.current && porNome.get(String(t.produto || '').trim().toUpperCase())
+        if (!i || novos.includes(i)) return t
+        const antigo = !String(t.qtdeProgramada ?? '').trim() && String(t.qtdeTransf ?? '').trim() === String(i.qtdeSugerida ?? '').trim()
+        if ((t.qtdeProgramada ?? '') === (i.qtdeSugerida ?? '') && !antigo) return t
+        atualizados++
+        return { ...t, qtdeProgramada: i.qtdeSugerida, ...(antigo ? { qtdeTransf: '' } : {}) }
+      })
+      return [...mexidos, ...novos.map(i => ({ id: uid(), data: dataPedido.current, tipo: 'pulv', autor: nome || null, produto: i.produto, saldoAnt: i.saldoAnt, qtdeProgramada: i.qtdeSugerida, qtdeTransf: '', estoque: '', destino: '', devolucao: '' }))]
+    })
+    const msg = !itens.length ? 'Nada a pedir do fechado: o estoque aberto cobre a programação.'
+      : novos.length ? `${novos.length} produto(s) listado(s). Confira a quantidade e preencha estoque e destino.`
+      : 'Esses produtos já estão na lista do dia — Qtde programada atualizada.'
     setPedido(p => ({ ...p, estado: 'aviso', msg, ultimo: todos }))
   }
 

@@ -18,3 +18,4 @@ Rodar: `npm install && npm run dev` · Build: `npm run build`
 - O botão **Operação em campo** passou a se chamar **Programação do dia** (28/10/2026).
 - **Aviso só com mudança de verdade** (28/10/2026): Baixa e Transferências só notificam se o conteúdo mudou desde o último aviso daquele assunto (`mudouDesdeUltimoAviso`/`lembrarAviso` em `avisosNuvem.js`). Salvar igual de novo não avisa ninguém.
 - **Qtde programada × Qtde transf.** (28/10/2026): na transferência fechado → aberto, o Pedido do fechado preenche **Qtde programada** (o que a programação pede); **Qtde transf. (estoque)** fica vazia para o pessoal do estoque preencher. Texto do WhatsApp, histórico e PDF mostram as duas.
+- Pedido do fechado com produto que já está na lista: atualiza a Qtde programada; item antigo (número da programação em Qtde transf.) passa o número pro campo certo, sem apagar o que o estoque digitou.
