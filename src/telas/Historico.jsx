@@ -8,7 +8,7 @@ import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
 import { PRODUTOS } from '../data/produtos'
 import { transfVisivel } from '../lib/sessao'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
-import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, apagarItemNuvem, subirExcel, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
+import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, apagarItemNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
 
@@ -152,14 +152,14 @@ export default function Historico({ perfil, nome }) {
 
   // Os arquivos (Excel + fotos) ficam prontos ANTES do toque em Enviar: o celular só deixa abrir a
   // folha de compartilhar logo depois do toque — se gerar o Excel na hora, ele recusa e cai no texto.
-  const [prontos, setProntos] = useState({ chave: '', arqs: [], links: [] })
+  const [prontos, setProntos] = useState({ chave: '', arqs: [] })
   const [msgEnvio, setMsgEnvio] = useState('')
   const chaveArqs = `${dia}|${JSON.stringify(baixas.map(b => [b.id, b.linhas.map(l => [l.produto, l.quant])]))}|${fotosDoDia.map(t => t.id).join(',')}`
   async function gerarArquivos() {
     const arqs = []
     for (const b of baixas) {
       const blob = await gerarExcelBaixa(tituloBaixa(b.id, dia), b.linhas, dia)
-      arqs.push(new File([blob], `baixa_${b.id === 'pulv' ? 'pulverizacao' : `ferti${b.id}`}_${dia}.xlsx`, { type: blob.type }))
+      arqs.push(new File([blob], `BAIXAS ${b.id === 'pulv' ? 'PULVERIZACAO' : `FERTI ${b.id}`} ${dia.slice(8, 10)}-${dia.slice(5, 7)}.xlsx`, { type: blob.type }))
     }
     for (let i = 0; i < fotosDoDia.length; i++) {
       const t = fotosDoDia[i]
@@ -172,43 +172,30 @@ export default function Historico({ perfil, nome }) {
   useEffect(() => {
     if (!baixas.length && !fotosDoDia.length) return
     let ativo = true
-    gerarArquivos().then(async arqs => {
-      // Excel vai como link (o celular não deixa anexar .xlsx); sobe já, pra estar pronto no toque.
-      const links = []
-      if (nuvemLigada) for (const a of arqs.filter(x => x.name.endsWith('.xlsx'))) {
-        try { links.push(await subirExcel(a)) } catch (e) { console.warn('excel nuvem', e) }
-      }
-      if (ativo) setProntos({ chave: chaveArqs, arqs, links })
-    }).catch(() => {})
+    gerarArquivos().then(arqs => { if (ativo) setProntos({ chave: chaveArqs, arqs }) }).catch(() => {})
     return () => { ativo = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveArqs])
 
+  // O Chrome do Android não deixa um site anexar .xlsx direto no WhatsApp (só foto/PDF/texto). Então:
+  // o Excel é SALVO no celular (Downloads, "BAIXAS FERTI 1 29-10.xlsx") e o WhatsApp abre com o texto;
+  // no WhatsApp: 📎 → Documento → o arquivo aparece no topo. No PC é igual (WhatsApp Web).
   async function enviar() {
     if (vazio || enviando) return
     setEnviando(true); setMsgEnvio('')
     try {
-      const pronto = prontos.chave === chaveArqs
-      const arqs = pronto ? prontos.arqs : await gerarArquivos()
-      const links = pronto ? prontos.links || [] : []
-      const celular = /Android|iPhone|iPad/i.test(navigator.userAgent || '')
-      if (!celular) { // PC: baixa os arquivos e abre o WhatsApp Web pra anexar
-        for (const a of arqs) baixarArquivo(a, a.name)
-        abrirWhatsapp(textoCompleto)
-        return
-      }
-      const texto = links.length ? `${textoCompleto}\n\n📊 Planilha Excel:\n${links.join('\n')}` : textoCompleto
-      if (!links.length && arqs.some(a => a.name.endsWith('.xlsx'))) setMsgEnvio('O Excel não subiu pra nuvem (sem internet ou bloqueado) — foi só o texto.')
-      // Fotos (jpg) o celular deixa anexar; o Excel vai pelo link no texto.
+      const arqs = prontos.chave === chaveArqs ? prontos.arqs : await gerarArquivos()
+      const excels = arqs.filter(a => a.name.endsWith('.xlsx'))
+      for (const a of excels) baixarArquivo(a, a.name)
+      if (excels.length) setMsgEnvio(`Excel salvo no celular (${excels.map(a => a.name).join(', ')}). No WhatsApp toque no 📎 → Documento e escolha o arquivo.`)
       const fotosArq = arqs.filter(a => a.type === 'image/jpeg')
       if (fotosArq.length && navigator.canShare?.({ files: fotosArq })) {
-        try { await navigator.share({ files: fotosArq, text: texto }); return }
+        try { await navigator.share({ files: fotosArq, text: textoCompleto }); return }
         catch (e) { if (e?.name === 'AbortError') return }
       }
-      await abrirWhatsapp(texto)
+      await abrirWhatsapp(textoCompleto)
     } catch (e) {
-      setMsgEnvio(`Erro ao preparar (${e?.name || ''} ${e?.message || ''}) — mandei só o texto.`)
-      abrirWhatsapp(textoCompleto)
+      setMsgEnvio(`Erro ao preparar (${e?.name || ''} ${e?.message || ''}).`)
     } finally { setEnviando(false) }
   }
   async function gerarPdf() {
@@ -340,7 +327,7 @@ export default function Historico({ perfil, nome }) {
             <button onClick={enviar} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow">
               <Send size={20} /> {enviando ? 'Preparando…' : 'Enviar relatório no WhatsApp'}
             </button>
-            {msgEnvio && <p className="text-sm text-center font-semibold text-amber-700">{msgEnvio}</p>}
+            {msgEnvio && <p className="text-sm text-center font-semibold text-green-800 bg-green-50 rounded-xl px-3 py-2">{msgEnvio}</p>}
             <div className="grid grid-cols-2 gap-2">
               <button onClick={gerarPdf} disabled={gerandoPdf} className="flex items-center justify-center gap-1.5 bg-white border-2 border-green-600 text-green-700 rounded-xl py-3 text-sm font-bold disabled:opacity-50">
                 <FileDown size={16} /> {gerandoPdf ? 'Gerando…' : 'Gerar PDF'}
