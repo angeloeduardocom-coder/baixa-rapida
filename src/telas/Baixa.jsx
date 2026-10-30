@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, FolderOpen, RotateCcw, Cloud, CloudOff } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
-import { gerarExcelBaixa } from '../lib/excelBaixa'
+import { gerarExcelBaixa, aquecerExcel } from '../lib/excelBaixa'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
 import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp, meuAparelho } from '../lib/nuvem'
 import { publicarAviso, perfisDoTipo, mudouDesdeUltimoAviso, lembrarAviso } from '../lib/avisosNuvem'
@@ -70,6 +70,7 @@ export default function Baixa({ perfil, nome }) {
     return [...lista.filter(p => semAcento(p.nome).startsWith(t)), ...lista.filter(p => !semAcento(p.nome).startsWith(t))]
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, catalogo, linhas])
+  useEffect(() => { aquecerExcel() }, [])
   const [listaAberta, setListaAberta] = useState(false)
   const [marcado, setMarcado] = useState(0)
   const buscaRef = useRef(null)

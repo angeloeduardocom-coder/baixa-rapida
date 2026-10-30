@@ -150,30 +150,54 @@ export default function Historico({ perfil, nome }) {
     return partes.join('\n\n')
   }, [baixas, transfDoDia, dia, fotos])
 
+  // Os arquivos (Excel + fotos) ficam prontos ANTES do toque em Enviar: o celular só deixa abrir a
+  // folha de compartilhar logo depois do toque — se gerar o Excel na hora, ele recusa e cai no texto.
+  const [prontos, setProntos] = useState({ chave: '', arqs: [] })
+  const [msgEnvio, setMsgEnvio] = useState('')
+  const chaveArqs = `${dia}|${JSON.stringify(baixas.map(b => [b.id, b.linhas.map(l => [l.produto, l.quant])]))}|${fotosDoDia.map(t => t.id).join(',')}`
+  async function gerarArquivos() {
+    const arqs = []
+    for (const b of baixas) {
+      const blob = await gerarExcelBaixa(tituloBaixa(b.id, dia), b.linhas, dia)
+      arqs.push(new File([blob], `baixa_${b.id === 'pulv' ? 'pulverizacao' : `ferti${b.id}`}_${dia}.xlsx`, { type: blob.type }))
+    }
+    for (let i = 0; i < fotosDoDia.length; i++) {
+      const t = fotosDoDia[i]
+      const nome = (t.produto || `PRODUTO ${i + 1}`).toUpperCase()
+      const blob = await carimbarFoto(fotos[`${t.id}:fotoTransf`], `${nome} — TRANSFERÊNCIA · ${diaMes(dia)}`)
+      arqs.push(new File([blob], `${i + 1}_${nome.replace(/[^\w-]+/g, '_')}.jpg`, { type: 'image/jpeg' }))
+    }
+    return arqs
+  }
+  useEffect(() => {
+    if (!baixas.length && !fotosDoDia.length) return
+    let ativo = true
+    gerarArquivos().then(arqs => { if (ativo) setProntos({ chave: chaveArqs, arqs }) }).catch(() => {})
+    return () => { ativo = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveArqs])
+
   async function enviar() {
     if (vazio || enviando) return
-    setEnviando(true)
+    setEnviando(true); setMsgEnvio('')
     try {
-      // Excel da baixa (modelo da planilha) — um por Ferti/Pulverização do dia, só com os produtos lançados.
-      const arqs = []
-      for (const b of baixas) {
-        const blob = await gerarExcelBaixa(tituloBaixa(b.id, dia), b.linhas, dia)
-        arqs.push(new File([blob], `baixa_${b.id === 'pulv' ? 'pulverizacao' : `ferti${b.id}`}_${dia}.xlsx`, { type: blob.type }))
-      }
-      for (let i = 0; i < fotosDoDia.length; i++) {
-        const t = fotosDoDia[i]
-        const nome = (t.produto || `PRODUTO ${i + 1}`).toUpperCase()
-        const blob = await carimbarFoto(fotos[`${t.id}:fotoTransf`], `${nome} — TRANSFERÊNCIA · ${diaMes(dia)}`)
-        arqs.push(new File([blob], `${i + 1}_${nome.replace(/[^\w-]+/g, '_')}.jpg`, { type: 'image/jpeg' }))
-      }
+      const arqs = prontos.chave === chaveArqs ? prontos.arqs : await gerarArquivos()
+      if (prontos.chave !== chaveArqs) setProntos({ chave: chaveArqs, arqs })
       if (arqs.length && navigator.canShare?.({ files: arqs })) {
-        await navigator.share({ files: arqs, text: textoCompleto })
+        try { await navigator.share({ files: arqs, text: textoCompleto }) }
+        catch (e) {
+          if (e?.name === 'AbortError') return
+          if (e?.name === 'NotAllowedError') { setMsgEnvio('Arquivo pronto. Toque em Enviar de novo.'); return }
+          throw e
+        }
         return
       }
-      for (const a of arqs) baixarArquivo(a, a.name) // PC: baixa os arquivos e abre o WhatsApp pra anexar
+      if (arqs.length && !/Android|iPhone|iPad/i.test(navigator.userAgent || '')) for (const a of arqs) baixarArquivo(a, a.name) // PC: baixa os arquivos e abre o WhatsApp pra anexar
+      else if (arqs.length) setMsgEnvio('Este celular não deixou compartilhar o Excel — mandei só o texto.')
       abrirWhatsapp(textoCompleto)
     } catch (e) {
-      if (e?.name !== 'AbortError') abrirWhatsapp(textoCompleto)
+      setMsgEnvio(`Erro ao preparar o Excel (${e?.name || ''} ${e?.message || ''}) — mandei só o texto.`)
+      abrirWhatsapp(textoCompleto)
     } finally { setEnviando(false) }
   }
   async function gerarPdf() {
@@ -305,6 +329,7 @@ export default function Historico({ perfil, nome }) {
             <button onClick={enviar} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow">
               <Send size={20} /> {enviando ? 'Preparando…' : 'Enviar relatório no WhatsApp'}
             </button>
+            {msgEnvio && <p className="text-sm text-center font-semibold text-amber-700">{msgEnvio}</p>}
             <div className="grid grid-cols-2 gap-2">
               <button onClick={gerarPdf} disabled={gerandoPdf} className="flex items-center justify-center gap-1.5 bg-white border-2 border-green-600 text-green-700 rounded-xl py-3 text-sm font-bold disabled:opacity-50">
                 <FileDown size={16} /> {gerandoPdf ? 'Gerando…' : 'Gerar PDF'}
