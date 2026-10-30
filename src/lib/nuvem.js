@@ -157,6 +157,16 @@ export async function enviarFoto(idItem, dataUrl) {
   return supabase.storage.from(BUCKET).getPublicUrl(caminho).data.publicUrl
 }
 
+// Excel da baixa na nuvem: o Chrome do Android NÃO deixa compartilhar .xlsx direto (só foto/PDF/texto),
+// então o arquivo sobe pro Storage e vai um link no WhatsApp — tocando, baixa/abre o Excel.
+export async function subirExcel(arquivo) {
+  if (!supabase) throw new Error('sem nuvem')
+  const caminho = `baixas-excel/${arquivo.name}`
+  const { error } = await supabase.storage.from(BUCKET).upload(caminho, arquivo, { contentType: arquivo.type, upsert: true, cacheControl: '60' })
+  if (error) throw error
+  return supabase.storage.from(BUCKET).getPublicUrl(caminho, { download: arquivo.name }).data.publicUrl
+}
+
 // Baixa uma foto da nuvem como dataURL (pra carimbar, mandar no WhatsApp e pôr no PDF).
 export async function baixarFoto(url) {
   const blob = await (await fetch(url)).blob()

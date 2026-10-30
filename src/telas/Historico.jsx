@@ -8,7 +8,7 @@ import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
 import { PRODUTOS } from '../data/produtos'
 import { transfVisivel } from '../lib/sessao'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
-import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, apagarItemNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
+import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, apagarItemNuvem, subirExcel, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
 import { gerarExcelBaixa } from '../lib/excelBaixa'
 
@@ -152,7 +152,7 @@ export default function Historico({ perfil, nome }) {
 
   // Os arquivos (Excel + fotos) ficam prontos ANTES do toque em Enviar: o celular só deixa abrir a
   // folha de compartilhar logo depois do toque — se gerar o Excel na hora, ele recusa e cai no texto.
-  const [prontos, setProntos] = useState({ chave: '', arqs: [] })
+  const [prontos, setProntos] = useState({ chave: '', arqs: [], links: [] })
   const [msgEnvio, setMsgEnvio] = useState('')
   const chaveArqs = `${dia}|${JSON.stringify(baixas.map(b => [b.id, b.linhas.map(l => [l.produto, l.quant])]))}|${fotosDoDia.map(t => t.id).join(',')}`
   async function gerarArquivos() {
@@ -172,7 +172,14 @@ export default function Historico({ perfil, nome }) {
   useEffect(() => {
     if (!baixas.length && !fotosDoDia.length) return
     let ativo = true
-    gerarArquivos().then(arqs => { if (ativo) setProntos({ chave: chaveArqs, arqs }) }).catch(() => {})
+    gerarArquivos().then(async arqs => {
+      // Excel vai como link (o celular não deixa anexar .xlsx); sobe já, pra estar pronto no toque.
+      const links = []
+      if (nuvemLigada) for (const a of arqs.filter(x => x.name.endsWith('.xlsx'))) {
+        try { links.push(await subirExcel(a)) } catch (e) { console.warn('excel nuvem', e) }
+      }
+      if (ativo) setProntos({ chave: chaveArqs, arqs, links })
+    }).catch(() => {})
     return () => { ativo = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveArqs])
@@ -181,22 +188,26 @@ export default function Historico({ perfil, nome }) {
     if (vazio || enviando) return
     setEnviando(true); setMsgEnvio('')
     try {
-      const arqs = prontos.chave === chaveArqs ? prontos.arqs : await gerarArquivos()
-      if (prontos.chave !== chaveArqs) setProntos({ chave: chaveArqs, arqs })
-      if (arqs.length && navigator.canShare?.({ files: arqs })) {
-        try { await navigator.share({ files: arqs, text: textoCompleto }) }
-        catch (e) {
-          if (e?.name === 'AbortError') return
-          if (e?.name === 'NotAllowedError') { setMsgEnvio('Arquivo pronto. Toque em Enviar de novo.'); return }
-          throw e
-        }
+      const pronto = prontos.chave === chaveArqs
+      const arqs = pronto ? prontos.arqs : await gerarArquivos()
+      const links = pronto ? prontos.links || [] : []
+      const celular = /Android|iPhone|iPad/i.test(navigator.userAgent || '')
+      if (!celular) { // PC: baixa os arquivos e abre o WhatsApp Web pra anexar
+        for (const a of arqs) baixarArquivo(a, a.name)
+        abrirWhatsapp(textoCompleto)
         return
       }
-      if (arqs.length && !/Android|iPhone|iPad/i.test(navigator.userAgent || '')) for (const a of arqs) baixarArquivo(a, a.name) // PC: baixa os arquivos e abre o WhatsApp pra anexar
-      else if (arqs.length) setMsgEnvio('Este celular não deixou compartilhar o Excel — mandei só o texto.')
-      abrirWhatsapp(textoCompleto)
+      const texto = links.length ? `${textoCompleto}\n\n📊 Planilha Excel:\n${links.join('\n')}` : textoCompleto
+      if (!links.length && arqs.some(a => a.name.endsWith('.xlsx'))) setMsgEnvio('O Excel não subiu pra nuvem (sem internet ou bloqueado) — foi só o texto.')
+      // Fotos (jpg) o celular deixa anexar; o Excel vai pelo link no texto.
+      const fotosArq = arqs.filter(a => a.type === 'image/jpeg')
+      if (fotosArq.length && navigator.canShare?.({ files: fotosArq })) {
+        try { await navigator.share({ files: fotosArq, text: texto }); return }
+        catch (e) { if (e?.name === 'AbortError') return }
+      }
+      await abrirWhatsapp(texto)
     } catch (e) {
-      setMsgEnvio(`Erro ao preparar o Excel (${e?.name || ''} ${e?.message || ''}) — mandei só o texto.`)
+      setMsgEnvio(`Erro ao preparar (${e?.name || ''} ${e?.message || ''}) — mandei só o texto.`)
       abrirWhatsapp(textoCompleto)
     } finally { setEnviando(false) }
   }
