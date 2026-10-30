@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Send, Copy, Check, X, ClipboardList, ArrowRightLeft, Camera, CalendarDays, FileDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Send, Copy, Check, X, ClipboardList, ArrowRightLeft, Camera, CalendarDays, FileDown, Pencil } from 'lucide-react'
 import { hojeISO, dataBR, diaMes } from '../lib/useLocal'
 import { lerFotosLocais, carimbarFoto } from '../lib/fotos'
 import { tituloBaixa, textoBaixa, textoTransferencias, abrirWhatsapp } from '../lib/textos'
@@ -8,7 +8,7 @@ import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
 import { PRODUTOS } from '../data/produtos'
 import { transfVisivel } from '../lib/sessao'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
-import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
+import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
 
 // Histórico / relatório: tudo o que foi lançado NESTE aparelho num dia — as baixas (Ferti 1,
@@ -90,6 +90,28 @@ export default function Historico({ perfil, nome }) {
 
   const [dia, setDia] = useState(() => dias[0] || hojeISO())
   const idx = dias.indexOf(dia)
+
+
+  // Corrigir a data de uma baixa lançada no dia errado: passa tudo dela pro dia certo (aqui e na nuvem).
+  const [movendo, setMovendo] = useState(null) // { id, nova }
+  const [erroMover, setErroMover] = useState('')
+  async function moverBaixa(tipo, para) {
+    const de = dia
+    if (!para || para === de) { setMovendo(null); return }
+    if (!window.confirm(`Passar esta baixa de ${dataBR(de)} para ${dataBR(para)}?`)) return
+    const kDe = `${de}|${tipo}`, kPara = `${para}|${tipo}`
+    const ids = (porDia[kDe] || []).map(l => l.id)
+    try {
+      if (nuvemLigada) await moverBaixaNuvem(tipo, de, para, ids)
+      const mexer = (chave, fn) => { try { const v = ler(chave, null); if (v) localStorage.setItem(chave, JSON.stringify(fn(v))) } catch { /* segue */ } }
+      mexer('baixa:porDia', v => { const { [kDe]: a = [], ...r } = v; return a.length ? { ...r, [kPara]: [...(r[kPara] || []), ...a] } : v })
+      mexer('baixa:salvos', v => { const { [kDe]: a, ...r } = v; return a ? { ...r, [kPara]: r[kPara] || a } : v })
+      mexer('baixa:enviados', v => { const { [kDe]: a, ...r } = v; return a ? { ...r, [kPara]: [...new Set([...(r[kPara] || []), ...a])] } : v })
+      mexer('baixa:filaNuvem', v => v.map(x => (x === kDe ? kPara : x)))
+      setPorDia(p => { const { [kDe]: a = [], ...r } = p; return { ...r, [kPara]: [...(r[kPara] || []), ...a] } })
+      setMovendo(null); setErroMover(''); setDia(para)
+    } catch (e) { setErroMover(`Não consegui mudar a data agora (${e?.message || 'sem internet'}). Tente de novo com internet.`) }
+  }
 
   const baixas = TIPOS.filter(([id]) => tipoOk(id)).map(([id, rotulo]) => ({ id, rotulo, linhas: porDia[`${dia}|${id}`] || [] })).filter(b => b.linhas.length)
   const transfDoDia = soPulv ? [] : transfs.filter(t => t.data === dia && transfVisivel(t, perfil))
@@ -195,7 +217,20 @@ export default function Historico({ perfil, nome }) {
           {/* Baixas */}
           {baixas.map(b => (
             <div key={b.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              <p className="bg-green-700 text-white text-sm font-bold px-3 py-2">{tituloBaixa(b.id, dia)}{(() => { const q = [...new Set(b.linhas.map(l => l.autor || nome).filter(Boolean))]; return q.length ? <span className="font-normal text-green-100"> · lançada por {q.join(', ')}</span> : null })()}</p>
+              <div className="bg-green-700 text-white text-sm font-bold px-3 py-2 flex items-start gap-2">
+                <p className="flex-1">{tituloBaixa(b.id, dia)}{(() => { const q = [...new Set(b.linhas.map(l => l.autor || nome).filter(Boolean))]; return q.length ? <span className="font-normal text-green-100"> · lançada por {q.join(', ')}</span> : null })()}</p>
+                <button onClick={() => { setErroMover(''); setMovendo(movendo?.id === b.id ? null : { id: b.id, nova: dia }) }} className="shrink-0 flex items-center gap-1 text-xs font-bold bg-white/20 rounded-lg px-2 py-1"><Pencil size={12} /> Mudar data</button>
+              </div>
+              {movendo?.id === b.id && (
+                <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 space-y-1.5">
+                  <p className="text-xs font-semibold text-amber-800">Lançou no dia errado? Escolha o dia certo:</p>
+                  <div className="flex gap-2">
+                    <input type="date" value={movendo.nova} onChange={e => setMovendo(m => ({ ...m, nova: e.target.value }))} className="flex-1 border border-gray-300 rounded-xl px-3 py-2 bg-white font-semibold text-green-700" />
+                    <button onClick={() => moverBaixa(b.id, movendo.nova)} className="px-4 rounded-xl bg-green-600 text-white font-bold">Mover</button>
+                  </div>
+                  {erroMover && <p className="text-xs text-red-600">{erroMover}</p>}
+                </div>
+              )}
               <table className="w-full text-sm">
                 <thead><tr className="bg-gray-50 text-xs text-gray-500 uppercase"><th className="text-left px-3 py-1.5">Produto</th><th className="text-right px-3 py-1.5">Quantidade</th></tr></thead>
                 <tbody>

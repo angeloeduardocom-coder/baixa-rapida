@@ -98,6 +98,17 @@ export async function enviarBaixaNuvem(data, tipo, linhas, enviados = [], autor 
   return atual.filter(i => i.data === data && !eMeu(i))
 }
 
+// Corrige a data de uma baixa já lançada: passa os itens (por id) do dia `de` pro dia `para`.
+export async function moverBaixaNuvem(tipo, de, para, ids) {
+  if (!supabase) throw new Error('sem nuvem')
+  const t = tabela(tipo)
+  const set = new Set(ids)
+  const atual = await lerLista(tipo)
+  const lista = atual.map(i => (i.data === de && set.has(i.id) ? { ...i, data: para } : i))
+  const { error } = await supabase.from(t.nome).update({ baixa: lista, atualizado_em: new Date().toISOString() }).eq(t.coluna, t.valor)
+  if (error) throw error
+}
+
 // Dias que têm programação de pulverização no sistema (pra listar as requisições passadas).
 export async function lerDiasComProgramacao(limite = 60) {
   if (!supabase) return []
