@@ -88,7 +88,7 @@ export default function Historico({ perfil, nome }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [porDia, transfs, diasProgramacao])
 
-  const [dia, setDia] = useState(() => dias[0] || hojeISO())
+  const [dia, setDia] = useState(hojeISO)
   const idx = dias.indexOf(dia)
 
 
