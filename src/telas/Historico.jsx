@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Send, Copy, Check, X, ClipboardList, ArrowRightLeft, Camera, CalendarDays, FileDown, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Send, Copy, Check, X, ClipboardList, ArrowRightLeft, Camera, CalendarDays, FileDown, Pencil, Trash2 } from 'lucide-react'
 import { hojeISO, dataBR, diaMes } from '../lib/useLocal'
 import { lerFotosLocais, carimbarFoto } from '../lib/fotos'
 import { tituloBaixa, textoBaixa, textoTransferencias, abrirWhatsapp } from '../lib/textos'
@@ -8,8 +8,9 @@ import { gerarPdfRelatorio } from '../lib/pdfRelatorio'
 import { PRODUTOS } from '../data/produtos'
 import { transfVisivel } from '../lib/sessao'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
-import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
+import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, apagarItemNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
+import { gerarExcelBaixa } from '../lib/excelBaixa'
 
 // Histórico / relatório: tudo o que foi lançado NESTE aparelho num dia — as baixas (Ferti 1,
 // Ferti 2, Pulverização) e as transferências, com as fotos tiradas. Dá pra mandar o resumão
@@ -113,6 +114,20 @@ export default function Historico({ perfil, nome }) {
     } catch (e) { setErroMover(`Não consegui mudar a data agora (${e?.message || 'sem internet'}). Tente de novo com internet.`) }
   }
 
+
+  // Tira UM produto da baixa (ex.: repetido) — aqui no aparelho e na nuvem.
+  async function apagarItem(tipo, l) {
+    if (!window.confirm(`Apagar ${l.produto} desta baixa?`)) return
+    const k = `${dia}|${tipo}`
+    try {
+      if (nuvemLigada) await apagarItemNuvem(tipo, l.id)
+      for (const chave of ['baixa:porDia']) { const v = ler(chave, null); if (v?.[k]) localStorage.setItem(chave, JSON.stringify({ ...v, [k]: v[k].filter(x => x.id !== l.id) })) }
+      const sv = ler('baixa:salvos', null)
+      if (sv?.[k]) localStorage.setItem('baixa:salvos', JSON.stringify({ ...sv, [k]: { ...sv[k], linhas: (sv[k].linhas || []).filter(x => x.id !== l.id) } }))
+      setPorDia(p => ({ ...p, [k]: (p[k] || []).filter(x => x.id !== l.id) }))
+    } catch (e) { setErroMover(`Não consegui apagar agora (${e?.message || 'sem internet'}).`) }
+  }
+
   const baixas = TIPOS.filter(([id]) => tipoOk(id)).map(([id, rotulo]) => ({ id, rotulo, linhas: porDia[`${dia}|${id}`] || [] })).filter(b => b.linhas.length)
   const transfDoDia = soPulv ? [] : transfs.filter(t => t.data === dia && transfVisivel(t, perfil))
   // Fotos que estão só na nuvem (tiradas em outro celular): baixa as do dia aberto.
@@ -139,7 +154,12 @@ export default function Historico({ perfil, nome }) {
     if (vazio || enviando) return
     setEnviando(true)
     try {
+      // Excel da baixa (modelo da planilha) — um por Ferti/Pulverização do dia, só com os produtos lançados.
       const arqs = []
+      for (const b of baixas) {
+        const blob = await gerarExcelBaixa(tituloBaixa(b.id, dia), b.linhas, dia)
+        arqs.push(new File([blob], `baixa_${b.id === 'pulv' ? 'pulverizacao' : `ferti${b.id}`}_${dia}.xlsx`, { type: blob.type }))
+      }
       for (let i = 0; i < fotosDoDia.length; i++) {
         const t = fotosDoDia[i]
         const nome = (t.produto || `PRODUTO ${i + 1}`).toUpperCase()
@@ -150,6 +170,7 @@ export default function Historico({ perfil, nome }) {
         await navigator.share({ files: arqs, text: textoCompleto })
         return
       }
+      for (const a of arqs) baixarArquivo(a, a.name) // PC: baixa os arquivos e abre o WhatsApp pra anexar
       abrirWhatsapp(textoCompleto)
     } catch (e) {
       if (e?.name !== 'AbortError') abrirWhatsapp(textoCompleto)
@@ -232,14 +253,15 @@ export default function Historico({ perfil, nome }) {
                 </div>
               )}
               <table className="w-full text-sm">
-                <thead><tr className="bg-gray-50 text-xs text-gray-500 uppercase"><th className="text-left px-3 py-1.5">Produto</th><th className="text-right px-3 py-1.5">Quantidade</th></tr></thead>
+                <thead><tr className="bg-gray-50 text-xs text-gray-500 uppercase"><th className="text-left px-3 py-1.5">Produto</th><th className="text-right px-3 py-1.5">Quantidade</th><th className="w-8" /></tr></thead>
                 <tbody>
                   {b.linhas.map(l => {
                     const [produto, qtd, un] = valoresDaLinha(l)
                     return (
                       <tr key={l.id} className="border-t border-gray-100">
                         <td className="px-3 py-2 font-semibold text-gray-800">{produto}</td>
-                        <td className="px-3 py-2 text-right font-mono">{qtd || '—'} <span className="text-xs text-gray-400">{un}</span></td>
+                        <td className="px-3 py-2 text-right font-mono whitespace-nowrap">{qtd || '—'} <span className="text-xs text-gray-400">{un}</span></td>
+                        <td className="pr-2 w-8"><button onClick={() => apagarItem(b.id, l)} aria-label={`Apagar ${produto}`} className="p-1.5 text-gray-300 active:text-red-600"><Trash2 size={15} /></button></td>
                       </tr>
                     )
                   })}

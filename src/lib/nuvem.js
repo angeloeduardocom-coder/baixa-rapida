@@ -109,6 +109,15 @@ export async function moverBaixaNuvem(tipo, de, para, ids) {
   if (error) throw error
 }
 
+// Apaga UM item (por id) de uma baixa já lançada — ex.: produto repetido.
+export async function apagarItemNuvem(tipo, id) {
+  if (!supabase) throw new Error('sem nuvem')
+  const t = tabela(tipo)
+  const atual = await lerLista(tipo)
+  const { error } = await supabase.from(t.nome).update({ baixa: atual.filter(i => i.id !== id), atualizado_em: new Date().toISOString() }).eq(t.coluna, t.valor)
+  if (error) throw error
+}
+
 // Dias que têm programação de pulverização no sistema (pra listar as requisições passadas).
 export async function lerDiasComProgramacao(limite = 60) {
   if (!supabase) return []

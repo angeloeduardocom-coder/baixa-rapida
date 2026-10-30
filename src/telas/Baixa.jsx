@@ -199,7 +199,7 @@ export default function Baixa({ perfil, nome }) {
     salvar(true) // sempre guarda antes de mandar
     setEnviando(true)
     try {
-      const blob = await gerarExcelBaixa(titulo, linhas)
+      const blob = await gerarExcelBaixa(titulo, linhas, data)
       const arq = new File([blob], `baixa_${ferti === 'pulv' ? 'pulverizacao' : `ferti${ferti}`}_${data}.xlsx`, { type: blob.type })
       if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq] }); return }
       baixarArquivo(blob, arq.name) // PC: baixa o Excel e abre o WhatsApp pra anexar
