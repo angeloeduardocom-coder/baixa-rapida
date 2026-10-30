@@ -61,7 +61,13 @@ function textoFechado(data, itens) {
   return out.join('\n')
 }
 
-export function abrirWhatsapp(texto) {
+// No celular abre direto a folha de compartilhar (escolhe o WhatsApp, sem aquele "abrir link?").
+// No PC (sem compartilhar) abre o WhatsApp Web.
+export async function abrirWhatsapp(texto) {
+  const celular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '')
+  if (celular && navigator.share) {
+    try { await navigator.share({ text: texto }); return } catch (e) { if (e?.name === 'AbortError') return }
+  }
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
 }
 
