@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, FolderOpen, RotateCcw, Cloud, CloudOff } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
-import { gerarExcelBaixa, aquecerExcel } from '../lib/excelBaixa'
+import { gerarPdfBaixa, nomePdfBaixa, aquecerPdf } from '../lib/pdfBaixa'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
 import { nuvemLigada, enderecoNuvem, lerBaixasNuvem, enviarBaixaNuvem, paraApp, meuAparelho } from '../lib/nuvem'
 import { publicarAviso, perfisDoTipo, mudouDesdeUltimoAviso, lembrarAviso } from '../lib/avisosNuvem'
@@ -70,7 +70,6 @@ export default function Baixa({ perfil, nome }) {
     return [...lista.filter(p => semAcento(p.nome).startsWith(t)), ...lista.filter(p => !semAcento(p.nome).startsWith(t))]
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [busca, catalogo, linhas])
-  useEffect(() => { aquecerExcel() }, [])
   const [listaAberta, setListaAberta] = useState(false)
   const [marcado, setMarcado] = useState(0)
   const buscaRef = useRef(null)
@@ -195,15 +194,30 @@ export default function Baixa({ perfil, nome }) {
   const titulo = tituloBaixa(ferti, data)
   const texto = textoBaixa(ferti, data, linhas)
 
+  // PDF da baixa (modelo da planilha) fica pronto ANTES do toque: o celular só deixa anexar
+  // arquivo logo depois do toque. Vai direto como documento no WhatsApp ("ferti1 baixa.pdf").
+  const pdfPronto = useRef({ chave: '', arq: null })
+  const chavePdf = `${ferti}|${data}|${JSON.stringify(linhas.map(l => [l.produto, l.quant]))}`
+  useEffect(() => {
+    if (!linhas.length) return
+    let ativo = true
+    const t = setTimeout(() => {
+      gerarPdfBaixa(titulo, linhas, data).then(blob => { if (ativo) pdfPronto.current = { chave: chavePdf, arq: new File([blob], nomePdfBaixa(ferti), { type: 'application/pdf' }) } }).catch(() => {})
+    }, 600)
+    return () => { ativo = false; clearTimeout(t) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chavePdf])
+  useEffect(() => { aquecerPdf() }, [])
+
   async function enviar() {
     if (!linhas.length || enviando) return
     salvar(true) // sempre guarda antes de mandar
     setEnviando(true)
     try {
-      const blob = await gerarExcelBaixa(titulo, linhas, data)
-      const arq = new File([blob], `baixa_${ferti === 'pulv' ? 'pulverizacao' : `ferti${ferti}`}_${data}.xlsx`, { type: blob.type })
-      if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq] }); return }
-      baixarArquivo(blob, arq.name) // PC: baixa o Excel e abre o WhatsApp pra anexar
+      const arq = pdfPronto.current.chave === chavePdf ? pdfPronto.current.arq
+        : new File([await gerarPdfBaixa(titulo, linhas, data)], nomePdfBaixa(ferti), { type: 'application/pdf' })
+      if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq], text: titulo }); return }
+      baixarArquivo(arq, arq.name) // PC: baixa o PDF e abre o WhatsApp pra anexar
       abrirWhatsapp(texto)
     } catch (e) {
       if (e?.name !== 'AbortError') abrirWhatsapp(texto)

@@ -10,7 +10,7 @@ import { transfVisivel } from '../lib/sessao'
 import RequisicaoPulverizacao from './RequisicaoPulverizacao'
 import { nuvemLigada, lerDiasComProgramacao, lerBaixasNuvem, moverBaixaNuvem, apagarItemNuvem, lerTransferenciasNuvem, baixarFoto, paraApp } from '../lib/nuvem'
 import { baixarArquivo } from '../lib/textos'
-import { gerarExcelBaixa } from '../lib/excelBaixa'
+import { gerarPdfBaixa, nomePdfBaixa } from '../lib/pdfBaixa'
 
 // Histórico / relatório: tudo o que foi lançado NESTE aparelho num dia — as baixas (Ferti 1,
 // Ferti 2, Pulverização) e as transferências, com as fotos tiradas. Dá pra mandar o resumão
@@ -158,8 +158,8 @@ export default function Historico({ perfil, nome }) {
   async function gerarArquivos() {
     const arqs = []
     for (const b of baixas) {
-      const blob = await gerarExcelBaixa(tituloBaixa(b.id, dia), b.linhas, dia)
-      arqs.push(new File([blob], `BAIXAS ${b.id === 'pulv' ? 'PULVERIZACAO' : `FERTI ${b.id}`} ${dia.slice(8, 10)}-${dia.slice(5, 7)}.xlsx`, { type: blob.type }))
+      const blob = await gerarPdfBaixa(tituloBaixa(b.id, dia), b.linhas, dia)
+      arqs.push(new File([blob], nomePdfBaixa(b.id), { type: 'application/pdf' }))
     }
     for (let i = 0; i < fotosDoDia.length; i++) {
       const t = fotosDoDia[i]
@@ -177,27 +177,29 @@ export default function Historico({ perfil, nome }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chaveArqs])
 
-  // O Chrome do Android não deixa um site anexar .xlsx direto no WhatsApp (só foto/PDF/texto). Então:
-  // o Excel é SALVO no celular (Downloads, "BAIXAS FERTI 1 29-10.xlsx") e o WhatsApp abre com o texto;
-  // no WhatsApp: 📎 → Documento → o arquivo aparece no topo. No PC é igual (WhatsApp Web).
+  // Manda PDF de cada baixa do dia ("ferti1 baixa.pdf"…) + fotos, direto como anexo no WhatsApp.
+  // Os arquivos ficam prontos antes do toque (o celular só deixa anexar logo depois do toque).
   async function enviar() {
     if (vazio || enviando) return
     setEnviando(true); setMsgEnvio('')
     try {
       const arqs = prontos.chave === chaveArqs ? prontos.arqs : await gerarArquivos()
-      const excels = arqs.filter(a => a.name.endsWith('.xlsx'))
-      for (const a of excels) baixarArquivo(a, a.name)
-      if (excels.length) setMsgEnvio(`Excel salvo no celular (${excels.map(a => a.name).join(', ')}). No WhatsApp toque no 📎 → Documento e escolha o arquivo.`)
-      const fotosArq = arqs.filter(a => a.type === 'image/jpeg')
-      if (fotosArq.length && navigator.canShare?.({ files: fotosArq })) {
-        try { await navigator.share({ files: fotosArq, text: textoCompleto }); return }
-        catch (e) { if (e?.name === 'AbortError') return }
+      if (arqs.length && navigator.canShare?.({ files: arqs })) {
+        try { await navigator.share({ files: arqs, text: textoCompleto }); return }
+        catch (e) {
+          if (e?.name === 'AbortError') return
+          if (e?.name === 'NotAllowedError') { setMsgEnvio('Arquivo pronto. Toque em Enviar de novo.'); return }
+          throw e
+        }
       }
+      if (arqs.length && !/Android|iPhone|iPad/i.test(navigator.userAgent || '')) for (const a of arqs) baixarArquivo(a, a.name) // PC
       await abrirWhatsapp(textoCompleto)
     } catch (e) {
-      setMsgEnvio(`Erro ao preparar (${e?.name || ''} ${e?.message || ''}).`)
+      setMsgEnvio(`Erro ao preparar (${e?.name || ''} ${e?.message || ''}) — mandei só o texto.`)
+      abrirWhatsapp(textoCompleto)
     } finally { setEnviando(false) }
   }
+
   async function gerarPdf() {
     if (vazio || gerandoPdf) return
     setGerandoPdf(true)
