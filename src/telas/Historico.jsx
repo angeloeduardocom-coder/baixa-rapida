@@ -195,7 +195,7 @@ export default function Historico({ perfil, nome }) {
           {/* Baixas */}
           {baixas.map(b => (
             <div key={b.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              <p className="bg-green-700 text-white text-sm font-bold px-3 py-2">{tituloBaixa(b.id, dia)}</p>
+              <p className="bg-green-700 text-white text-sm font-bold px-3 py-2">{tituloBaixa(b.id, dia)}{(() => { const q = [...new Set(b.linhas.map(l => l.autor || nome).filter(Boolean))]; return q.length ? <span className="font-normal text-green-100"> · lançada por {q.join(', ')}</span> : null })()}</p>
               <table className="w-full text-sm">
                 <thead><tr className="bg-gray-50 text-xs text-gray-500 uppercase"><th className="text-left px-3 py-1.5">Produto</th><th className="text-right px-3 py-1.5">Quantidade</th></tr></thead>
                 <tbody>

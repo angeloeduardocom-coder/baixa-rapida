@@ -165,16 +165,31 @@ export default function Baixa({ perfil, nome }) {
     if (!(porDia[k] || []).length && salvos[k]?.linhas?.length) setPorDia(p => ({ ...p, [k]: salvos[k].linhas }))
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+  // "Em aberto": rascunho que ainda não foi salvo de verdade (Salvar/Enviar). Depois de salvo vai
+  // pro Histórico, no dia dele, e sai desta lista.
+  const emAberto = k => {
+    const ls = porDia[k] || []
+    if (!ls.length) return false
+    const s = salvos[k]
+    const salvoDeVerdade = s && mesmaLista(s.linhas, ls) && (!nuvemLigada || s.nuvemEm || s.enviadoEm)
+    return !salvoDeVerdade
+  }
   const guardadas = useMemo(() => {
-    const ks = new Set([...Object.keys(porDia).filter(k => (porDia[k] || []).length), ...Object.keys(salvos).filter(k => salvos[k]?.linhas?.length)])
-    ks.delete(chave)
-    for (const k of [...ks]) if (!tipos.includes(tipoDaChave(k.split('|')[1]))) ks.delete(k)
-    return [...ks].sort((a, b) => b.localeCompare(a)).slice(0, 6).map(k => {
-      const ls = (porDia[k] || []).length ? porDia[k] : salvos[k].linhas
-      return { k, data: k.split('|')[0], tipo: NOME_TIPO[tipoDaChave(k.split('|')[1])] || k.split('|')[1], n: ls.length, enviado: !!salvos[k]?.enviadoEm && mesmaLista(salvos[k].linhas, ls) }
-    })
+    const ks = Object.keys(porDia).filter(emAberto)
+    return ks.filter(k => k !== chave && tipos.includes(tipoDaChave(k.split('|')[1])))
+      .sort((a, b) => b.localeCompare(a)).slice(0, 8).map(k => ({
+        k, data: k.split('|')[0], tipo: NOME_TIPO[tipoDaChave(k.split('|')[1])] || k.split('|')[1], n: porDia[k].length,
+      }))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [porDia, salvos, chave, perfil?.id])
+  // Apaga o rascunho daqui (caso tenha sido feito por acaso). O que já foi pra nuvem não é mexido.
+  function apagarGuardada(k) {
+    const g = guardadas.find(x => x.k === k)
+    if (!window.confirm(`Apagar a baixa de ${diaMes(g?.data || k.split('|')[0])} (${g?.tipo || ''}) que está neste aparelho? Ela não será enviada.`)) return
+    setPorDia(p => { const { [k]: _, ...resto } = p; return resto })
+    setSalvos(s => (s[k] && !s[k].nuvemEm ? Object.fromEntries(Object.entries(s).filter(([x]) => x !== k)) : s))
+    setFila(f => f.filter(x => x !== k))
+  }
 
   const titulo = tituloBaixa(ferti, data)
   const texto = textoBaixa(ferti, data, linhas)
@@ -214,14 +229,17 @@ export default function Baixa({ perfil, nome }) {
 
       {guardadas.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-1.5">
-          <p className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><FolderOpen size={16} className="text-green-700" /> Baixas guardadas neste aparelho</p>
+          <p className="text-sm font-bold text-gray-700 flex items-center gap-1.5"><FolderOpen size={16} className="text-green-700" /> Baixas em aberto neste aparelho <span className="font-normal text-gray-400">(ainda não salvas)</span></p>
           {guardadas.map(g => (
-            <button key={g.k} onClick={() => abrirGuardada(g.k)} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 active:bg-green-50 text-left">
-              <span className="font-bold text-gray-800">{diaMes(g.data)}</span>
-              <span className="text-sm text-gray-600">{g.tipo}</span>
-              <span className="text-xs text-gray-400">· {g.n} produto(s)</span>
-              <span className={`ml-auto text-[11px] font-bold rounded-full px-2 py-0.5 ${g.enviado ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{g.enviado ? 'Enviada' : 'Não enviada'}</span>
-            </button>
+            <div key={g.k} className="flex items-stretch gap-1.5">
+              <button onClick={() => abrirGuardada(g.k)} className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-100 bg-gray-50 active:bg-green-50 text-left">
+                <span className="font-bold text-gray-800">{diaMes(g.data)}</span>
+                <span className="text-sm text-gray-600">{g.tipo}</span>
+                <span className="text-xs text-gray-400">· {g.n} produto(s)</span>
+                <span className="ml-auto text-[11px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-700">Em aberto</span>
+              </button>
+              <button onClick={() => apagarGuardada(g.k)} aria-label="Apagar esta baixa" title="Apagar" className="px-3 rounded-xl border border-red-100 bg-red-50 text-red-600 active:bg-red-100"><Trash2 size={16} /></button>
+            </div>
           ))}
         </div>
       )}

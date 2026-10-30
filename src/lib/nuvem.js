@@ -68,7 +68,7 @@ const soNumero = q => /^\s*-?[\d.,]+\s*$/.test(String(q ?? ''))
 const numeroDoTexto = q => { const m = String(q ?? '').match(/-?[\d.,]+/); return m ? numero(m[0]) : null }
 export const paraServidor = (l, data, autor) => ({ autor: autor || null, id: l.id, data, produto: l.produto, quantidade: soNumero(l.quant) ? numero(l.quant) : numeroDoTexto(l.quant), quantidade_texto: String(l.quant ?? '').trim() && !soNumero(l.quant) ? String(l.quant).trim() : null, unidade: l.unidade || null, transferencia: l.transferencia ?? null, local: l.local ?? null, origem: 'app', aparelho: meuAparelho })
 // Sem unidade (lançado na tela do sistema): pega a do cadastro de produtos do app.
-export const paraApp = (i, catalogo = []) => ({ id: i.id, produto: i.produto || '', unidade: i.unidade || catalogo.find(p => p.nome.toUpperCase() === String(i.produto || '').toUpperCase())?.unidade || 'L', quant: i.quantidade_texto || quantTexto(i.quantidade), origem: i.origem || 'sistema', transferencia: i.transferencia ?? null, local: i.local ?? null })
+export const paraApp = (i, catalogo = []) => ({ id: i.id, produto: i.produto || '', unidade: i.unidade || catalogo.find(p => p.nome.toUpperCase() === String(i.produto || '').toUpperCase())?.unidade || 'L', quant: i.quantidade_texto || quantTexto(i.quantidade), origem: i.origem || 'sistema', transferencia: i.transferencia ?? null, local: i.local ?? null, autor: i.autor || '' })
 
 async function lerLista(tipo) {
   const t = tabela(tipo)
