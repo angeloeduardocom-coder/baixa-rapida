@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Tractor, Plane, Backpack, Droplet, Crosshair, Wind, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Tractor, Plane, Backpack, Droplet, Crosshair, Wind, Bug, Leaf, Bell, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PERFIS_APP, GRUPOS_APP } from '../lib/sessao'
 import { supabase } from '../lib/nuvem'
 
@@ -16,6 +16,8 @@ const INFO = {
   aux: [Eye, 'Ver a programação do dia ao vivo'],
   gestor: [ShieldCheck, 'Vê e edita tudo'],
   apl_tratorizado: [Tractor, 'Aplicação com trator'],
+  apl_cigarrinha: [Bug, 'Trator · aplicação de cigarrinha'],
+  apl_herbicida: [Leaf, 'Trator · aplicação de herbicida'],
   apl_drone: [Plane, 'Aplicação com drone'],
   apl_costal: [Backpack, 'Aplicação com pulverizador costal'],
   apl_esquicho: [Droplet, 'Aplicação com esquicho'],
@@ -23,7 +25,33 @@ const INFO = {
   apl_polvilhado: [Wind, 'Aplicação polvilhada'],
 }
 
+// Aviso na lista (10/11/2026): cada método mostra se tem programação pra hoje ou amanhã
+// (blocos da programação de pulverização salva no sistema, tabela aplicacoes).
+const isoLocal = (dias = 0) => { const d = new Date(); d.setDate(d.getDate() + dias); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+function useProgramados() {
+  const [mapa, setMapa] = useState({})
+  useEffect(() => {
+    if (!supabase) return undefined
+    let ativo = true
+    const buscar = () => supabase.from('aplicacoes').select('data, programas').eq('arquivado', false).gte('data', isoLocal(0)).lte('data', isoLocal(1)).then(({ data, error }) => {
+      if (!ativo || error || !data) return
+      const hoje = isoLocal(0), m = {}
+      for (const a of data) for (const prog of a.programas || []) {
+        if (!prog?.metodo_aplicacao) continue
+        const x = (m[prog.metodo_aplicacao] ||= { hoje: 0, amanha: 0 })
+        x[String(a.data).slice(0, 10) === hoje ? 'hoje' : 'amanha'] += (prog.grupos || []).length || 1
+      }
+      setMapa(m)
+    })
+    buscar()
+    const t = setInterval(buscar, 120000)
+    return () => { ativo = false; clearInterval(t) }
+  }, [])
+  return mapa
+}
+
 export default function Login({ onEntrar }) {
+  const programados = useProgramados()
   const [nome, setNome] = useState('')
   const [perfil, setPerfil] = useState('')
   const [grupo, setGrupo] = useState(null) // null = tela inicial · id do grupo escolhido
@@ -65,12 +93,20 @@ export default function Login({ onEntrar }) {
   const g = GRUPOS_APP.find(x => x.id === grupo)
   const escolherGrupo = x => { setErro(''); setGrupo(x.id); setPerfil(x.perfis.length === 1 ? x.perfis[0] : '') }
   const voltar = () => { setErro(''); setSenha(''); if (perfil && g?.perfis.length > 1) setPerfil(''); else { setGrupo(null); setPerfil('') } }
-  const Linha = ({ Icone, titulo, desc, onClick }) => (
+  const Linha = ({ Icone, titulo, desc, onClick, aviso }) => (
     <button type="button" onClick={onClick} className="w-full flex items-center gap-3 px-3.5 py-3.5 text-left bg-white active:bg-green-50">
-      <span className="w-11 h-11 rounded-xl bg-green-600 text-white flex items-center justify-center shrink-0"><Icone size={22} /></span>
+      <span className="relative w-11 h-11 rounded-xl bg-green-600 text-white flex items-center justify-center shrink-0">
+        <Icone size={22} />
+        {aviso && <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-white ${aviso.hoje ? 'bg-red-500 animate-pulse' : 'bg-amber-400'}`} />}
+      </span>
       <span className="flex-1 min-w-0">
         <span className="block font-bold text-gray-800 leading-tight">{titulo}</span>
         <span className="block text-xs text-gray-500 truncate">{desc}</span>
+        {aviso && (
+          <span className={`mt-1 inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2 py-0.5 ${aviso.hoje ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'}`}>
+            <Bell size={11} /> {[aviso.hoje && `Hoje: ${aviso.hoje} balde${aviso.hoje > 1 ? 's' : ''}`, aviso.amanha && `Amanhã: ${aviso.amanha} balde${aviso.amanha > 1 ? 's' : ''}`].filter(Boolean).join(' · ')}
+          </span>
+        )}
       </span>
       <ChevronRight size={18} className="text-gray-300 shrink-0" />
     </button>
@@ -109,7 +145,7 @@ export default function Login({ onEntrar }) {
             return (
               <div key={id}>
                 {abreAplicadores && <p className="px-3.5 py-1.5 bg-gray-50 text-[11px] font-bold tracking-wide text-gray-500 uppercase">Aplicadores por método</p>}
-                <Linha Icone={Icone} titulo={PERFIS_APP.find(x => x.id === id)?.rotulo} desc={desc} onClick={() => { setPerfil(id); setErro('') }} />
+                <Linha Icone={Icone} titulo={PERFIS_APP.find(x => x.id === id)?.rotulo} desc={desc} aviso={programados[PERFIS_APP.find(x => x.id === id)?.metodo]} onClick={() => { setPerfil(id); setErro('') }} />
               </div>
             )
           })}
