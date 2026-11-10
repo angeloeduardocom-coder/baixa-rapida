@@ -11,6 +11,7 @@ export const PERFIS_APP = [
   // 10/11/2026: métodos novos do sistema — aplicações do trator separadas (baixa do trator igual).
   { id: 'apl_cigarrinha', rotulo: 'Tratorizado - Cigarrinha', metodo: 'Tratorizado - Cigarrinha', tipos: [], senha: 'cigarrinha123', somenteProgramacao: true, baixa: true },
   { id: 'apl_herbicida', rotulo: 'Tratorizado - Herbicida', metodo: 'Tratorizado - Herbicida', tipos: [], senha: 'herbicida123', somenteProgramacao: true, baixa: true },
+  { id: 'apl_barra', rotulo: 'Aplicação na Barra', metodo: 'Aplicação na Barra', tipos: [], senha: 'barra123', somenteProgramacao: true, baixa: true },
   { id: 'apl_drone', rotulo: 'Drone', metodo: 'Drone', tipos: [], senha: 'drone123', somenteProgramacao: true },
   { id: 'apl_costal', rotulo: 'Costal', metodo: 'Costal', tipos: [], senha: 'costal123', somenteProgramacao: true },
   { id: 'apl_esquicho', rotulo: 'Esquicho', metodo: 'Esquicho', tipos: [], senha: 'esquicho123', somenteProgramacao: true },
@@ -23,7 +24,7 @@ export const PERFIS_APP = [
 export const GRUPOS_APP = [
   { id: 'gestor', rotulo: 'Gestor', desc: 'Vê e edita tudo', perfis: ['gestor'] },
   { id: 'aux', rotulo: 'Auxiliar de campo', desc: 'Programação do dia ao vivo', perfis: ['aux'] },
-  { id: 'aplicacoes', rotulo: 'Aplicações', desc: 'Ferti 1, Ferti 2, Área do caldeiro e aplicadores', perfis: ['ferti1', 'ferti2', 'pulv', 'apl_tratorizado', 'apl_cigarrinha', 'apl_herbicida', 'apl_drone', 'apl_costal', 'apl_esquicho', 'apl_lanca', 'apl_polvilhado'] },
+  { id: 'aplicacoes', rotulo: 'Aplicações', desc: 'Ferti 1, Ferti 2, Área do caldeiro e aplicadores', perfis: ['ferti1', 'ferti2', 'pulv', 'apl_tratorizado', 'apl_cigarrinha', 'apl_herbicida', 'apl_barra', 'apl_drone', 'apl_costal', 'apl_esquicho', 'apl_lanca', 'apl_polvilhado'] },
 ]
 export const perfilDe = id => PERFIS_APP.find(p => p.id === id) || null
 // Transferência sem tipo (feita antes do login existir, ou na tela de Transferência da Adubação

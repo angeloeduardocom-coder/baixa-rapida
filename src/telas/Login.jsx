@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Tractor, Plane, Backpack, Droplet, Crosshair, Wind, Bug, Leaf, Bell, ChevronLeft, ChevronRight } from 'lucide-react'
+import { LogIn, Sprout, Droplets, SprayCan, Eye, ShieldCheck, Tractor, Plane, Backpack, Droplet, Crosshair, Wind, Bug, Leaf, Bell, Minus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { PERFIS_APP, GRUPOS_APP } from '../lib/sessao'
 import { supabase } from '../lib/nuvem'
 
@@ -18,6 +18,7 @@ const INFO = {
   apl_tratorizado: [Tractor, 'Aplicação com trator'],
   apl_cigarrinha: [Bug, 'Trator · aplicação de cigarrinha'],
   apl_herbicida: [Leaf, 'Trator · aplicação de herbicida'],
+  apl_barra: [Minus, 'Trator · aplicação na barra'],
   apl_drone: [Plane, 'Aplicação com drone'],
   apl_costal: [Backpack, 'Aplicação com pulverizador costal'],
   apl_esquicho: [Droplet, 'Aplicação com esquicho'],

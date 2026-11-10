@@ -32,6 +32,6 @@ Rodar: `npm install && npm run dev` · Build: `npm run build`
 - **Baixa vai em PDF pelo WhatsApp** (30/10/2026): no lugar do Excel, cada baixa vira um PDF no modelo da planilha (`src/lib/pdfBaixa.js`), com o nome `ferti1 baixa.pdf`, `ferti2 baixa.pdf` ou `pulverizacao baixa.pdf`. PDF o celular deixa anexar direto: o botão abre o compartilhar e o arquivo vai como documento. Vale pra aba Baixa (Enviar no WhatsApp) e pro Histórico (todas as baixas do dia + fotos). O PDF fica pronto antes do toque. `excelBaixa.js` ficou no código, sem uso.
 
 ## Métodos novos e aviso de programação (10/11/2026)
-- Aplicadores **Tratorizado - Cigarrinha** (`apl_cigarrinha`, senha padrão `cigarrinha123`) e **Tratorizado - Herbicida** (`apl_herbicida`, `herbicida123`), com a baixa do trator igual ao Tratorizado.
+- Aplicadores **Aplicação na Barra** (`apl_barra`, `barra123`), **Tratorizado - Cigarrinha** (`apl_cigarrinha`, senha padrão `cigarrinha123`) e **Tratorizado - Herbicida** (`apl_herbicida`, `herbicida123`), com a baixa do trator igual ao Tratorizado.
 - Na lista "Aplicadores por método", cada método mostra bolinha + etiqueta quando tem programação: vermelha "Hoje: N baldes", amarela "Amanhã: N baldes" (lê `aplicacoes` do sistema, atualiza a cada 2 min).
 - O sistema agora manda aviso (sino + push) pro aplicador do método quando salva ou junta uma programação: "Programação nova · Drone — Para 11/11 · 3 baldes".
