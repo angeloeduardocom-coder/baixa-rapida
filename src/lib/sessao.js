@@ -7,11 +7,11 @@ export const PERFIS_APP = [
   { id: 'aux', rotulo: 'Auxiliar de campo', tipos: [], senha: 'aux123', somenteProgramacao: true },
   // Aplicadores por método (28/10/2026): por enquanto só veem a programação do dia; cada um será
   // estruturado depois, com os detalhes do método.
-  { id: 'apl_tratorizado', rotulo: 'Tratorizado', metodo: 'Tratorizado', tipos: [], senha: 'tratorizado123', somenteProgramacao: true, baixa: true },
+  { id: 'apl_tratorizado', rotulo: 'Tratorizado', metodo: 'Tratorizado', tipos: [], senha: 'tratorizado123', somenteProgramacao: true, folha: true },
   // 10/11/2026: métodos novos do sistema — aplicações do trator separadas (baixa do trator igual).
-  { id: 'apl_cigarrinha', rotulo: 'Tratorizado - Cigarrinha', metodo: 'Tratorizado - Cigarrinha', tipos: [], senha: 'cigarrinha123', somenteProgramacao: true, baixa: true },
-  { id: 'apl_herbicida', rotulo: 'Tratorizado - Herbicida', metodo: 'Tratorizado - Herbicida', tipos: [], senha: 'herbicida123', somenteProgramacao: true, baixa: true },
-  { id: 'apl_barra', rotulo: 'Aplicação na Barra', metodo: 'Aplicação na Barra', tipos: [], senha: 'barra123', somenteProgramacao: true, baixa: true },
+  { id: 'apl_cigarrinha', rotulo: 'Tratorizado - Cigarrinha', metodo: 'Tratorizado - Cigarrinha', tipos: [], senha: 'cigarrinha123', somenteProgramacao: true, folha: true },
+  { id: 'apl_herbicida', rotulo: 'Tratorizado - Herbicida', metodo: 'Tratorizado - Herbicida', tipos: [], senha: 'herbicida123', somenteProgramacao: true, folha: true },
+  { id: 'apl_barra', rotulo: 'Aplicação na Barra', metodo: 'Aplicação na Barra', tipos: [], senha: 'barra123', somenteProgramacao: true, folha: true },
   { id: 'apl_drone', rotulo: 'Drone', metodo: 'Drone', tipos: [], senha: 'drone123', somenteProgramacao: true },
   { id: 'apl_costal', rotulo: 'Costal', metodo: 'Costal', tipos: [], senha: 'costal123', somenteProgramacao: true },
   { id: 'apl_esquicho', rotulo: 'Esquicho', metodo: 'Esquicho', tipos: [], senha: 'esquicho123', somenteProgramacao: true },

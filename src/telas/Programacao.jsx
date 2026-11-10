@@ -17,7 +17,7 @@ export default function Programacao({ perfil, nome }) {
   const [versao, setVersao] = useState(0)
   // Aplicador (ex.: Drone): duas abas — a programação do método (com anotações) e a requisição dele.
   const aplicador = !!perfil?.metodo
-  const [aba, setAba] = useState(() => { try { return (aplicador && localStorage.getItem('apl:aba')) || 'prog' } catch { return 'prog' } })
+  const [aba, setAba] = useState(() => { try { const a = (aplicador && localStorage.getItem('apl:aba')) || 'prog'; return a === 'baixa' && !perfil?.baixa ? 'prog' : a } catch { return 'prog' } })
   const trocarAba = a => { setAba(a); setAltura(600); try { localStorage.setItem('apl:aba', a) } catch { /* ok */ } }
   const srcRequisicao = `${SISTEMA}/app-requisicao?embed=1&data=${data}&metodo=${encodeURIComponent(perfil?.metodo || '')}&avisar=gestor&aparelho=${encodeURIComponent(meuAparelho)}&autor=${encodeURIComponent(nome ? `${nome} (app)` : 'App Campo')}`
   const srcBaixa = `${SISTEMA}/app-requisicao?baixatrator=1&embed=1&data=${data}&metodo=${encodeURIComponent(perfil?.metodo || '')}&aparelho=${encodeURIComponent(meuAparelho)}&autor=${encodeURIComponent(nome || '')}`
@@ -46,6 +46,14 @@ export default function Programacao({ perfil, nome }) {
             <button key={id} onClick={() => trocarAba(id)} className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold ${aba === id ? 'bg-white text-green-700 shadow-sm' : 'text-gray-500'}`}><Icone size={16} /> {rot}</button>
           ))}
         </div>
+      )}
+      {perfil?.folha && (
+        // 10/11/2026: a baixa do trator saiu daqui — agora é na Folha Digital (app próprio dos tratoristas).
+        <a href={`${SISTEMA}/app-folha`} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
+          <ClipboardCheck size={22} className="text-green-700 shrink-0" />
+          <span className="flex-1 text-sm"><b className="block text-green-800">A baixa agora é na Folha Digital</b><span className="text-xs text-green-700">Toque pra abrir e instalar no celular</span></span>
+          <ExternalLink size={16} className="text-green-700" />
+        </a>
       )}
       <p className="flex items-center gap-1.5 text-xs font-semibold text-green-700"><Radio size={14} /> Ao vivo · {perfil?.metodo ? `${perfil.metodo} · ` : ''}programação de {dataBR(data)} · {aplicador && aba === 'baixa' ? 'baixa do balde — iniciar e finalizar a aplicação' : aplicador && aba === 'req' ? 'requisição — salvar avisa o Gestor' : aplicador ? 'toque em "Não aplicado" se algo não foi feito' : podeEditar ? 'toque no lápis para editar um balde' : 'só visualização'}</p>
       <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">

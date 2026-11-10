@@ -35,3 +35,4 @@ Rodar: `npm install && npm run dev` · Build: `npm run build`
 - Aplicadores **Aplicação na Barra** (`apl_barra`, `barra123`), **Tratorizado - Cigarrinha** (`apl_cigarrinha`, senha padrão `cigarrinha123`) e **Tratorizado - Herbicida** (`apl_herbicida`, `herbicida123`), com a baixa do trator igual ao Tratorizado.
 - Na lista "Aplicadores por método", cada método mostra bolinha + etiqueta quando tem programação: vermelha "Hoje: N baldes", amarela "Amanhã: N baldes" (lê `aplicacoes` do sistema, atualiza a cada 2 min).
 - O sistema agora manda aviso (sino + push) pro aplicador do método quando salva ou junta uma programação: "Programação nova · Drone — Para 11/11 · 3 baldes".
+- 10/11/2026: a aba **Baixa** dos aplicadores de trator (Tratorizado, Cigarrinha, Herbicida, Barra) saiu daqui — a baixa agora é na **Folha Digital** (https://robo-agr-cola.vercel.app/app-folha). No lugar fica um atalho "A baixa agora é na Folha Digital".
