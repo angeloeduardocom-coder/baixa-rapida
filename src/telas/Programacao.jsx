@@ -51,7 +51,7 @@ export default function Programacao({ perfil, nome }) {
         // 10/11/2026: a baixa do trator saiu daqui — agora é na Folha Digital (app próprio dos tratoristas).
         <a href={`${SISTEMA}/app-folha`} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
           <ClipboardCheck size={22} className="text-green-700 shrink-0" />
-          <span className="flex-1 text-sm"><b className="block text-green-800">A baixa agora é na Folha Digital</b><span className="text-xs text-green-700">Toque pra abrir e instalar no celular</span></span>
+          <span className="flex-1 text-sm"><b className="block text-green-800">A baixa agora é no DF's Digital</b><span className="text-xs text-green-700">Toque pra abrir e instalar no celular</span></span>
           <ExternalLink size={16} className="text-green-700" />
         </a>
       )}
