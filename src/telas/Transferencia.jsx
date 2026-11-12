@@ -58,7 +58,8 @@ const SISTEMA = (import.meta.env.VITE_URL_SISTEMA || 'https://robo-agr-cola.verc
 // anterior) ou 'aberto' (de um estoque aberto pra outro, com foto da saída e da chegada).
 // Itens antigos sem `fluxo` são do fechado.
 export const fluxoDe = t => t.fluxo || 'fechado'
-const FOTOS = { fechado: [['fotoTransf', '📷 Foto do produto transferido', 'TRANSFERÊNCIA']], aberto: [['fotoTransf', '📷 Foto na saída', 'SAÍDA'], ['fotoChegada', '📷 Foto na chegada', 'CHEGADA']] }
+// 12/11/2026: fechado → aberto ficou sem foto (o Ângelo pediu); aberto → aberto continua com saída/chegada.
+const FOTOS = { fechado: [], aberto: [['fotoTransf', '📷 Foto na saída', 'SAÍDA'], ['fotoChegada', '📷 Foto na chegada', 'CHEGADA']] }
 const CAMPOS_ABERTO = [['qtdeTransf', '📦 Quantidade'], ['estoque', '🏠 Saiu de (estoque)'], ['destino', '🏠 Foi para']]
 
 // Qtde programada = o que a programação do dia pede (vem do Pedido do fechado). Qtde transf. = o que o
@@ -166,7 +167,8 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
       if (e.origin !== SISTEMA || e.data?.tipo !== 'pedido-fechado' || e.data.data !== dataPedido.current) return
       const todos = e.data.itens || []
       if (e.data.semProgramacao) { setPedido(p => ({ ...p, estado: 'aviso', msg: 'Ainda não tem programação de pulverização nesse dia.', ultimo: null })); return }
-      incluirPedido(todos.filter(i => i.situacao === 'pedir' || i.situacao === 'falta'), todos)
+      // 12/11/2026: lista TODOS os produtos da requisição do dia (o estoque aberto ainda não está 100%).
+      incluirPedido(todos, todos)
     }
     window.addEventListener('message', receber)
     return () => window.removeEventListener('message', receber)
@@ -200,7 +202,7 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
       })
       return [...mexidos, ...novos.map(i => ({ id: uid(), data: dataPedido.current, tipo: 'pulv', autor: nome || null, produto: i.produto, saldoAnt: i.saldoAnt, qtdeProgramada: i.qtdeSugerida, qtdeTransf: '', estoque: '', destino: '', devolucao: '' }))]
     })
-    const msg = !itens.length ? 'Nada a pedir do fechado: o estoque aberto cobre a programação.'
+    const msg = !itens.length ? 'A programação do dia não tem produtos pra listar.'
       : novos.length ? `${novos.length} produto(s) listado(s). Confira a quantidade e preencha estoque e destino.`
       : 'Esses produtos já estão na lista do dia — Qtde programada atualizada.'
     setPedido(p => ({ ...p, estado: 'aviso', msg, ultimo: todos }))
@@ -295,9 +297,6 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
           <button onClick={pedirDoFechado} disabled={pedido.estado === 'buscando'} className="w-full flex items-center justify-center gap-2 bg-amber-500 active:bg-amber-600 disabled:opacity-60 text-white font-bold rounded-xl py-3"><PackageSearch size={18} /> {pedido.estado === 'buscando' ? 'Buscando a programação…' : 'Pedido do fechado'}</button>
           {pedido.estado === 'buscando' && <iframe key={pedido.chave} title="Pedido do fechado" src={`${SISTEMA}/app-requisicao?pedido=1&embed=1&data=${data}`} style={{ display: 'none' }} />}
           {pedido.estado === 'aviso' && <p className="text-xs text-gray-600">{pedido.msg}</p>}
-          {pedido.estado === 'aviso' && pedido.ultimo?.length > 0 && (
-            <button onClick={() => incluirPedido(pedido.ultimo, pedido.ultimo)} className="text-xs font-semibold text-amber-700 underline">Listar todos os produtos da programação</button>
-          )}
         </div>
       )}
       <datalist id="produtos-transf">{nomes.map(n => <option key={n} value={n} />)}</datalist>
@@ -340,7 +339,7 @@ export default function Transferencia({ perfil, nome, fluxo = 'fechado' }) {
           {salvoMsg && <p className="text-center text-xs font-semibold text-green-700">{salvoMsg}</p>}
           <button onClick={() => enviar()} disabled={enviando} className="w-full flex items-center justify-center gap-2 bg-green-600 active:bg-green-700 disabled:opacity-50 text-white font-bold text-lg rounded-2xl py-4 shadow"><Send size={20} /> {enviando ? 'Preparando…' : 'Enviar no WhatsApp'}</button>
           <button onClick={copiar} className="w-full flex items-center justify-center gap-1.5 bg-white border border-gray-300 rounded-xl py-3 text-sm font-semibold text-gray-700">{copiado ? <Check size={16} className="text-green-600" /> : <Copy size={16} />} {copiado ? 'Copiado' : 'Copiar texto'}</button>
-          <p className="text-[11px] text-gray-400 text-center">No celular as fotos vão junto, cada uma com o nome do produto escrito no topo. No computador abre só o texto.</p>
+          {fluxo === 'aberto' && <p className="text-[11px] text-gray-400 text-center">No celular as fotos vão junto, cada uma com o nome do produto escrito no topo. No computador abre só o texto.</p>}
         </div>
       )}
     </div>
