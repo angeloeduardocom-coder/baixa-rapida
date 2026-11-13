@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Trash2, Send, Copy, Check, Search, Eraser, ChevronDown, X, Save, FolderOpen, RotateCcw, Cloud, CloudOff } from 'lucide-react'
+import { Trash2, Send, Copy, Check, Eraser, Save, FolderOpen, RotateCcw, Cloud, CloudOff } from 'lucide-react'
 import { PRODUTOS } from '../data/produtos'
 import { useLocal, uid, hojeISO, diaMes } from '../lib/useLocal'
 import { gerarPdfBaixa, nomePdfBaixa, aquecerPdf } from '../lib/pdfBaixa'
@@ -11,15 +11,9 @@ import { tituloBaixa, textoBaixa, abrirWhatsapp, baixarArquivo } from '../lib/te
 // Busca sem acento e sem diferença de maiúscula (ex: "magnesio" acha "SULFATO DE MAGNÉSIO").
 const semAcento = t => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toUpperCase()
 
-// Pinta de amarelo o pedaço do nome que bate com o que foi digitado.
-function Destaque({ texto, termo }) {
-  const t = semAcento(termo).trim()
-  const i = t ? semAcento(texto).indexOf(t) : -1
-  if (i < 0) return texto
-  return <>{texto.slice(0, i)}<mark className="bg-yellow-200 rounded px-0.5">{texto.slice(i, i + t.length)}</mark>{texto.slice(i + t.length)}</>
-}
-
 const NOME_TIPO = { 1: 'Ferti 1', 2: 'Ferti 2', pulv: 'Pulverização' }
+const ontemISO = () => { const d = new Date(`${hojeISO()}T12:00:00`); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) }
+const diaLongo = iso => new Date(`${iso}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
 const tipoDaChave = t => (t === 'pulv' ? 'pulv' : Number(t))
 const hora = iso => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 const mesmaLista = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || [])
@@ -58,33 +52,17 @@ export default function Baixa({ perfil, nome }) {
   const setLinhas = fn => setPorDia(p => ({ ...p, [chave]: fn(p[chave] || []) }))
 
   const catalogo = useMemo(() => [...PRODUTOS, ...extras.map(n => ({ nome: n, unidade: 'L' }))], [extras])
-  const jaTem = new Set(linhas.map(l => l.produto.toUpperCase()))
-  // Lista da barra de produtos: em ordem alfabética; digitando, primeiro os que COMEÇAM com o
-  // texto, depois os que só contêm. Os que já estão na baixa não aparecem.
-  const sugestoes = useMemo(() => {
-    const t = semAcento(busca).trim()
-    const lista = catalogo
-      .filter(p => !jaTem.has(p.nome.toUpperCase()) && (!t || semAcento(p.nome).includes(t)))
-      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-    if (!t) return lista
-    return [...lista.filter(p => semAcento(p.nome).startsWith(t)), ...lista.filter(p => !semAcento(p.nome).startsWith(t))]
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busca, catalogo, linhas])
-  const [listaAberta, setListaAberta] = useState(false)
-  const [marcado, setMarcado] = useState(0)
-  const buscaRef = useRef(null)
-  const nomeNovo = busca.trim().toUpperCase()
-  const podeCriar = nomeNovo && !catalogo.some(p => p.nome.toUpperCase() === nomeNovo) && !jaTem.has(nomeNovo)
-
-  function adicionar(nome, unidade = 'L') {
-    setLinhas(ls => [...ls, { id: uid(), produto: nome, unidade, quant: '' }])
-    setBusca('')
-    setListaAberta(false)
-    setMarcado(0)
-  }
-  function criarProduto() {
-    setExtras(e => [...e, nomeNovo])
-    adicionar(nomeNovo)
+  const [qtdNova, setQtdNova] = useState('')
+  const [erroForm, setErroForm] = useState('')
+  function adicionarBaixa() {
+    const nomeP = busca.trim().toUpperCase().replace(/\s+/g, ' ')
+    const q = qtdNova.trim()
+    if (!nomeP) { setErroForm('Digite o produto.'); return }
+    if (!q) { setErroForm('Digite a quantidade.'); return }
+    const doCatalogo = catalogo.find(p => semAcento(p.nome) === semAcento(nomeP))
+    setLinhas(ls => [...ls, { id: uid(), produto: doCatalogo?.nome || nomeP, unidade: doCatalogo?.unidade || '', quant: q }])
+    if (!doCatalogo) setExtras(e => (e.includes(nomeP) ? e : [...e, nomeP]))
+    setBusca(''); setQtdNova(''); setErroForm('')
   }
   const atualizar = (id, c, v) => setLinhas(ls => ls.map(l => (l.id === id ? { ...l, [c]: v } : l)))
   const remover = id => setLinhas(ls => ls.filter(l => l.id !== id))
@@ -237,7 +215,16 @@ export default function Baixa({ perfil, nome }) {
             </button>
           ))}
         </div>
-        <input type="date" value={data} onChange={e => e.target.value && setData(e.target.value)} className={`${campo} font-semibold text-green-700`} />
+        {/* 13/11/2026 (modelo do Ângelo): "Data das baixas" com atalhos Hoje / Ontem. */}
+        <div className="rounded-xl bg-green-50 border border-green-200 p-3 space-y-2">
+          <p className="text-sm font-bold text-green-800">Data das baixas</p>
+          <input type="date" value={data} onChange={e => e.target.value && setData(e.target.value)} className={`${campo} font-bold text-center text-gray-900`} />
+          <div className="flex gap-2">
+            {[['Hoje', hojeISO()], ['Ontem', ontemISO()]].map(([t, d]) => (
+              <button key={t} onClick={() => setData(d)} className={`px-5 py-2 rounded-xl text-[15px] font-bold border ${data === d ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-gray-200 text-gray-700'}`}>{t}</button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {ferti === 'pulv' && <RequisicaoPulverizacao data={data} autor={nome} />}
@@ -259,63 +246,19 @@ export default function Baixa({ perfil, nome }) {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-2">
-        <p className="text-sm font-bold text-gray-700">Adicionar produto</p>
-        {/* Barra de produtos: toca/digita e a lista vai aparecendo e filtrando (setas + Enter também). */}
-        <div className="relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <input
-            ref={buscaRef}
-            value={busca}
-            onChange={e => { setBusca(e.target.value); setListaAberta(true); setMarcado(0) }}
-            onFocus={() => setListaAberta(true)}
-            onBlur={() => setTimeout(() => setListaAberta(false), 150)}
-            onKeyDown={e => {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setListaAberta(true); setMarcado(m => Math.min(m + 1, sugestoes.length - 1)) }
-              else if (e.key === 'ArrowUp') { e.preventDefault(); setMarcado(m => Math.max(m - 1, 0)) }
-              else if (e.key === 'Enter') {
-                e.preventDefault()
-                const p = sugestoes[marcado]
-                if (p) adicionar(p.nome, p.unidade)
-                else if (podeCriar) criarProduto()
-              } else if (e.key === 'Escape') setListaAberta(false)
-            }}
-            placeholder="Toque e escolha, ou digite o nome…"
-            className={`${campo} pl-10 pr-10`}
-            role="combobox"
-            aria-expanded={listaAberta}
-          />
-          {busca ? (
-            <button onMouseDown={e => e.preventDefault()} onClick={() => { setBusca(''); buscaRef.current?.focus() }} aria-label="Limpar" className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400"><X size={18} /></button>
-          ) : (
-            <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          )}
-          {listaAberta && (sugestoes.length > 0 || podeCriar) && (
-            <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-72 overflow-y-auto">
-              <p className="sticky top-0 bg-gray-50 border-b border-gray-100 px-3 py-1.5 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">
-                {busca.trim() ? `${sugestoes.length} produto(s) encontrado(s)` : `${sugestoes.length} produtos · A–Z`}
-              </p>
-              {sugestoes.map((p, i) => (
-                <button
-                  key={p.nome}
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => adicionar(p.nome, p.unidade)}
-                  onMouseEnter={() => setMarcado(i)}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 text-left text-[15px] border-b border-gray-50 ${i === marcado ? 'bg-green-50' : 'bg-white'}`}
-                >
-                  <Plus size={16} className="text-green-600 shrink-0" />
-                  <span className="flex-1 font-semibold text-gray-800"><Destaque texto={p.nome} termo={busca} /></span>
-                  <span className="text-xs font-bold text-gray-400">{p.unidade}</span>
-                </button>
-              ))}
-              {podeCriar && (
-                <button onMouseDown={e => e.preventDefault()} onClick={criarProduto} className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-[15px] bg-amber-50 text-amber-800 font-semibold">
-                  <Plus size={16} className="shrink-0" /> Criar produto “{nomeNovo}”
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+      {/* 13/11/2026 (modelo do Ângelo): digita o produto e a quantidade e toca em "Adicionar baixa". */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-3 space-y-3">
+        <label className="block">
+          <span className="text-sm font-bold text-gray-600">Produto</span>
+          <input value={busca} onChange={e => { setBusca(e.target.value); setErroForm('') }} list="produtos-baixa" placeholder="Ex.: Nitrato de cálcio" autoCapitalize="characters" autoComplete="off" className={`${campo} mt-1 uppercase placeholder:normal-case`} />
+          <datalist id="produtos-baixa">{catalogo.map(p => <option key={p.nome} value={p.nome} />)}</datalist>
+        </label>
+        <label className="block">
+          <span className="text-sm font-bold text-gray-600">Quantidade</span>
+          <input value={qtdNova} onChange={e => { setQtdNova(e.target.value); setErroForm('') }} onKeyDown={e => { if (e.key === 'Enter') adicionarBaixa() }} placeholder="Ex.: 25" inputMode="decimal" className={`${campo} mt-1`} />
+        </label>
+        {erroForm && <p className="text-sm font-semibold text-red-600">{erroForm}</p>}
+        <button onClick={adicionarBaixa} className="w-full bg-green-600 active:bg-green-700 text-white font-bold text-lg rounded-xl py-3.5">Adicionar baixa</button>
       </div>
 
       {outros.length > 0 && (
@@ -337,24 +280,25 @@ export default function Baixa({ perfil, nome }) {
           <RotateCcw size={18} /> Recuperar baixa salva ({salvo.linhas.length} produto(s), às {hora(salvo.salvoEm)})
         </button>
       )}
-      {linhas.length === 0 && <p className="text-center text-gray-400 py-8">Toque na barra acima e escolha os produtos para montar a baixa do dia.</p>}
-
-      {linhas.map(l => (
-        <div key={l.id} className="bg-white rounded-2xl border border-gray-200 p-3 space-y-2.5">
-          <div className="flex items-center gap-2">
-            <p className="flex-1 font-bold text-gray-800 text-base">{l.produto}</p>
-            <button onClick={() => remover(l.id)} aria-label="Remover" className="p-2 text-gray-300 hover:text-red-500"><Trash2 size={18} /></button>
+      <div>
+        <h3 className="text-lg font-extrabold text-gray-900">Lançamentos do dia</h3>
+        <p className="text-sm text-gray-500 capitalize">{diaLongo(data)} · {NOME_TIPO[ferti]}</p>
+      </div>
+      {linhas.length === 0 && (
+        <p className="text-center text-[15px] text-gray-500 border-2 border-dashed border-gray-200 rounded-2xl px-4 py-6">
+          Nenhuma baixa lançada em {diaMes(data)}. Preencha o produto e a quantidade acima e toque em Adicionar baixa.
+        </p>
+      )}
+      <div className="space-y-1.5">
+        {linhas.map(l => (
+          <div key={l.id} className="flex items-center gap-2 bg-white rounded-2xl border border-gray-200 pl-3 pr-1 py-2">
+            <p className="flex-1 min-w-0 font-bold text-gray-800 text-base truncate">{l.produto}</p>
+            <input value={l.quant ?? ''} onChange={e => atualizar(l.id, 'quant', e.target.value)} inputMode="decimal" aria-label={`Quantidade de ${l.produto}`} className="w-20 text-right font-mono font-extrabold text-gray-900 border border-transparent focus:border-green-500 rounded-lg px-2 py-1.5 outline-none" />
+            {l.unidade && <span className="text-xs font-bold text-green-700">{l.unidade}</span>}
+            <button onClick={() => remover(l.id)} aria-label={`Apagar ${l.produto}`} className="p-2 text-gray-300 active:text-red-500"><Trash2 size={18} /></button>
           </div>
-          <label className="block">
-            <span className="text-xs font-semibold text-gray-500">Quantidade</span>
-            <div className="flex gap-1.5">
-              <input inputMode="text" value={l.quant ?? ''} onChange={e => atualizar(l.id, 'quant', e.target.value)} placeholder="Ex.: 25 ou 0,60 gramas" className={campo} />
-              {/* Unidade fixa, a que veio do cadastro do produto (não troca aqui). */}
-              <span className="px-4 flex items-center rounded-xl border border-gray-200 font-bold text-green-700 bg-green-50 shrink-0">{l.unidade}</span>
-            </div>
-          </label>
-        </div>
-      ))}
+        ))}
+      </div>
 
       {linhas.length > 0 && (
         <div className="space-y-2 pt-1">
